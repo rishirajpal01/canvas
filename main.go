@@ -51,7 +51,6 @@ func main() {
 		pubsub := redisClient.Subscribe(context.TODO(), "pixelUpdates")
 		defer pubsub.Close()
 		ch := pubsub.Channel()
-		_, err = pubsub.Receive(context.TODO())
 		rch := make(chan string, 100)
 		lch := make(chan string, 100)
 		if err != nil {
