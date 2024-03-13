@@ -30,6 +30,9 @@ var mongoClient, _ = mongo.Connect(context.TODO(), options.Client().ApplyURI("mo
 
 func main() {
 
+	defer mongoClient.Disconnect(context.Background())
+	defer redisClient.Close()
+
 	pong, err := redisClient.Ping(context.TODO()).Result()
 	if err != nil {
 		panic(fmt.Sprintf("Redis is not live: %v", err))
