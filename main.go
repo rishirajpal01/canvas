@@ -56,9 +56,6 @@ func main() {
 		ch := pubsub.Channel()
 		rch := make(chan string, 100)
 		lch := make(chan string, 100)
-		if err != nil {
-			log.Fatal(err)
-		}
 		log.Println("Websocket Connected!")
 
 		// Start a goroutine to receive messages from the channel
