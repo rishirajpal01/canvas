@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -78,7 +78,7 @@ func MakeDefaultCanvas(redisClient *redis.Client) error {
 
 func SetPixel(x int, y int, color int, redisClient *redis.Client) (bool, error) {
 	pixelID := (y * 10) + x
-	a := redisClient.Do("BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color))
+	a := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color))
 	_, err := a.Result()
 	if err != nil {
 		return false, err
@@ -91,7 +91,7 @@ func SetPixel(x int, y int, color int, redisClient *redis.Client) (bool, error) 
 // #region Canvas
 func GetCanvas(redisClient *redis.Client) ([]int64, error) {
 	responseArr := make([]int64, 100)
-	val, err := redisClient.Get("canvas").Result()
+	val, err := redisClient.Get(context.TODO(), "canvas").Result()
 	if err != nil {
 		return responseArr, err
 	}
@@ -103,7 +103,7 @@ func GetCanvas(redisClient *redis.Client) ([]int64, error) {
 }
 
 func CanSetPixel(userId string, redisClient *redis.Client) (bool, string) {
-	expiry, err := redisClient.Get(userId).Result()
+	expiry, err := redisClient.Get(context.TODO(), userId).Result()
 	if err != nil {
 		return true, "Can set pixel because no data in redis!"
 	}
@@ -117,13 +117,13 @@ func CanSetPixel(userId string, redisClient *redis.Client) (bool, string) {
 func SetPixelAndPublish(x int, y int, color int, userId string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
 	pixelID := (y * 10) + x
 
-	a := redisClient.Do("BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color))
+	a := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color))
 	_, err := a.Result()
 	if err != nil {
 		return false, err
 	}
 	expiry := time.Now().Add(30 * time.Second)
-	b := redisClient.Do("SET", userId, expiry.String(), "EX", 30)
+	b := redisClient.Do(context.TODO(), "SET", userId, expiry.String(), "EX", 30)
 	_, err = b.Result()
 	if err != nil {
 		return false, err
@@ -131,7 +131,7 @@ func SetPixelAndPublish(x int, y int, color int, userId string, redisClient *red
 
 	//#region Publish on pub sub
 	mess := fmt.Sprintf("User: %s set pixelID #%d to color %d", userId, pixelID, color)
-	err = redisClient.Publish("pixelUpdates", mess).Err()
+	err = redisClient.Publish(context.TODO(), "pixelUpdates", mess).Err()
 	if err != nil {
 		return false, err
 	}

@@ -9,8 +9,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-redis/redis"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -30,7 +30,7 @@ var mongoClient, _ = mongo.Connect(context.TODO(), options.Client().ApplyURI("mo
 
 func main() {
 
-	pong, err := redisClient.Ping().Result()
+	pong, err := redisClient.Ping(context.TODO()).Result()
 	if err != nil {
 		panic(fmt.Sprintf("Redis is not live: %v", err))
 	}
@@ -48,10 +48,10 @@ func main() {
 
 		// Subscribe to the pixelUpdates channel
 
-		pubsub := redisClient.Subscribe("pixelUpdates")
+		pubsub := redisClient.Subscribe(context.TODO(), "pixelUpdates")
 		defer pubsub.Close()
 		ch := pubsub.Channel()
-		_, err = pubsub.Receive()
+		_, err = pubsub.Receive(context.TODO())
 		rch := make(chan string, 100)
 		lch := make(chan string, 100)
 		if err != nil {
