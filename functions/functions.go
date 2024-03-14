@@ -104,8 +104,12 @@ func CanSetPixel(userId string, redisClient *redis.Client) (bool, string) {
 	if err != nil {
 		return true, "Can set pixel because no data in redis!"
 	}
+	secsLeft, err := time.Parse(time.RFC3339, expiry)
+	if err != nil {
+		return false, err.Error()
+	}
 	if expiry != "" {
-		return false, fmt.Sprintf("Can't set pixel because user %s has to wait until %s", userId, expiry)
+		return false, fmt.Sprintf("Wait for %v secs before placing another pixel!", time.Until(secsLeft))
 	}
 	return true, "Can set pixel!"
 
@@ -118,8 +122,8 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	if err != nil {
 		return false, err
 	}
-	expiry := time.Now().Add(30 * time.Second)
-	b := redisClient.Do(context.TODO(), "SET", userId, expiry.String(), "EX", 30)
+	expiry := time.Now().Add(30 * time.Second).Format(time.RFC3339)      //todo: Real Value is 1 min
+	b := redisClient.Do(context.TODO(), "SET", userId, expiry, "EX", 30) //todo: Real Value is 1 min
 	_, err = b.Result()
 	if err != nil {
 		return false, err
