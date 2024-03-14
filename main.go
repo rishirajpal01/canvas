@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
@@ -101,12 +102,33 @@ func main() {
 }
 
 func listen(conn *websocket.Conn, wc chan string) {
+	// Done channel to close go routine handling ping pong
+	done := make(chan struct{})
+	defer close(done)
+	// Pong handler updates the deadline on every message revieved
+	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(20 * time.Second)); return nil })
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				wc <- "Ping!"
+			}
+		}
+	}()
 	for {
+		// Set the read deadline to 20 seconds from now
+		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+
 		//#region read a message
 		messageType, messageContent, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
 			wc <- err.Error()
+			close(done)
 			return
 		}
 
