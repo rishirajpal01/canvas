@@ -73,6 +73,10 @@ func main() {
 		}
 		log.Printf("User %v is connected!\n", userId)
 		defer websocket.Close()
+		client := &Client{
+			Conn:     websocket,
+			LastPong: time.Now(),
+		}
 		//#endregion Upgrade the HTTP connection to a websocket
 
 		//#region Subscribe to the pixelUpdates channel
@@ -80,7 +84,6 @@ func main() {
 		defer pubsub.Close()
 		ch := pubsub.Channel()
 		rch := make(chan string, 100)
-		lch := make(chan string, 100)
 		log.Println("Subscribed to pixelUpdates channel")
 		//#endregion Subscribe to the pixelUpdates channel
 
@@ -93,45 +96,33 @@ func main() {
 		}(rch)
 
 		go func() {
-			for {
-				select {
-				case msg := <-rch:
-					if err := websocket.WriteMessage(1, []byte("redisChannel: "+msg)); err != nil {
-						log.Println("error writing to websocket:", err)
-					}
-				case msg := <-lch:
-					if err := websocket.WriteMessage(1, []byte("userChannel: "+msg)); err != nil {
-						log.Println("error writing to websocket:", err)
-					}
+			for msg := range rch {
+				if err := websocket.WriteMessage(1, []byte("redisChannel: "+msg)); err != nil {
+					log.Println("error writing to websocket:", err)
 				}
 			}
 		}()
 
-		listen(websocket, lch)
+		listen(client)
 	})
 	http.ListenAndServe(":8080", nil)
 }
 
-func listen(conn *websocket.Conn, wc chan string) {
+func listen(client *Client) {
 	//#region Ping Pong Handler
 
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
-			wc <- "Ping!"
+			client.Conn.WriteMessage(1, []byte("Ping!"))
 		}
 	}()
-
-	client := &Client{
-		Conn:     conn,
-		LastPong: time.Now(),
-	}
 
 	mutex.Lock()
 	clients[client] = true
 	mutex.Unlock()
-	conn.SetPongHandler(func(string) error { // Idea: set lastpong time only when pong is recieved
+	client.Conn.SetPongHandler(func(string) error { // Idea: set lastpong time only when pong is recieved
 		client.LastPong = time.Now()
 		return nil
 	})
@@ -139,13 +130,16 @@ func listen(conn *websocket.Conn, wc chan string) {
 
 	for {
 		// Set the read deadline to 30 seconds from now
-		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		client.Conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
 		//#region read a message
-		messageType, messageContent, err := conn.ReadMessage()
+		messageType, messageContent, err := client.Conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
-			wc <- err.Error()
+			if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
+				log.Println(err)
+				return
+			}
 			return
 		}
 
@@ -153,7 +147,10 @@ func listen(conn *websocket.Conn, wc chan string) {
 		err = json.Unmarshal(messageContent, &userMessage)
 		if err != nil {
 			log.Println(err)
-			wc <- err.Error()
+			if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
+				log.Println(err)
+				return
+			}
 			return
 		}
 		//#endregion read a message
@@ -162,7 +159,10 @@ func listen(conn *websocket.Conn, wc chan string) {
 
 		isValidMessage := functions.VerifyMessage(userMessage.MessageType)
 		if !isValidMessage {
-			wc <- "Not a valid message!"
+			if err := client.Conn.WriteMessage(messageType, []byte("Not a valid message!")); err != nil {
+				log.Println(err)
+				return
+			}
 		}
 		//#endregion Verify User message
 
@@ -174,7 +174,7 @@ func listen(conn *websocket.Conn, wc chan string) {
 			//turn userContent to bytes
 			contentBytes, err := json.Marshal(userMessage.Content)
 			if err != nil {
-				if err := conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
+				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
 					log.Println(err)
 					return
 				}
@@ -184,7 +184,7 @@ func listen(conn *websocket.Conn, wc chan string) {
 			// turn bytes to placeTileMessage
 			err = json.Unmarshal(contentBytes, &placeTileMessage)
 			if err != nil {
-				if err := conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
+				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
 					log.Println(err)
 					return
 				}
@@ -194,7 +194,7 @@ func listen(conn *websocket.Conn, wc chan string) {
 			// verify placeTileMessage
 			isValid := functions.VerifyPlaceTileMessage(placeTileMessage)
 			if !isValid {
-				if err := conn.WriteMessage(messageType, []byte("Not a valid place tile request")); err != nil {
+				if err := client.Conn.WriteMessage(messageType, []byte("Not a valid place tile request")); err != nil {
 					fmt.Println(err)
 				}
 			}
@@ -204,7 +204,10 @@ func listen(conn *websocket.Conn, wc chan string) {
 			//#region canSet pixel
 			canSetPixel, message := functions.CanSetPixel(userMessage.UserId, redisClient)
 			if !canSetPixel {
-				wc <- message
+				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
+					log.Println(err)
+					return
+				}
 				continue
 			}
 			//#endregion canSet pixel
@@ -212,12 +215,18 @@ func listen(conn *websocket.Conn, wc chan string) {
 			//#region Set pixel
 			success, err := functions.SetPixelAndPublish(placeTileMessage.PixelId, placeTileMessage.Color, userMessage.UserId, redisClient, mongoClient)
 			if !success {
-				wc <- err.Error()
+				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
+					log.Println(err)
+					return
+				}
 			}
 			//#endregion Set pixel
 
 			//#region Send Response
-			wc <- "Pixel set!"
+			if err := client.Conn.WriteMessage(messageType, []byte("Pixel Set!")); err != nil {
+				log.Println(err)
+				return
+			}
 			//#endregion Send Response
 
 		} else if userMessage.MessageType == models.GET_CANVAS {
@@ -226,7 +235,7 @@ func listen(conn *websocket.Conn, wc chan string) {
 			val, err := functions.GetCanvas(redisClient)
 			if err != nil {
 				log.Println(err)
-				if err := conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
+				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
 					log.Println(err)
 					return
 				}
@@ -235,7 +244,10 @@ func listen(conn *websocket.Conn, wc chan string) {
 			//#endregion Get Canvas
 
 			//#region Send Canvas
-			wc <- fmt.Sprintf("%v", val)
+			if err := client.Conn.WriteMessage(messageType, []byte(fmt.Sprintf("%v", val))); err != nil {
+				log.Println(err)
+				return
+			}
 			//#endregion Send Canvas
 
 		} else if userMessage.MessageType == models.VIEW_PIXEL {
@@ -244,7 +256,7 @@ func listen(conn *websocket.Conn, wc chan string) {
 			pixelValue, err := functions.GetPixel(userMessage.Content.PixelId, mongoClient)
 			if err != nil {
 				log.Println(err)
-				if err := conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
+				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
 					log.Println(err)
 					return
 				}
@@ -253,18 +265,27 @@ func listen(conn *websocket.Conn, wc chan string) {
 			//#endregion Get Pixel
 
 			//#region Send Pixel
-			wc <- fmt.Sprintf("Pixel value: %v", pixelValue)
+			if err := client.Conn.WriteMessage(messageType, []byte(fmt.Sprintf("Pixel value: %v", pixelValue))); err != nil {
+				log.Println(err)
+				return
+			}
 			//#endregion Send Pixel
 
 		} else if userMessage.MessageType == models.TEST {
 			canSet, message := functions.CanSetPixel(userMessage.UserId, redisClient)
 			if canSet {
-				wc <- message
+				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
+					log.Println(err)
+					return
+				}
 			} else {
-				wc <- message
+				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
+					log.Println(err)
+					return
+				}
 			}
 		} else {
-			if err := conn.WriteMessage(messageType, []byte("Not a valid message!")); err != nil {
+			if err := client.Conn.WriteMessage(messageType, []byte("Not a valid message!")); err != nil {
 				fmt.Println(err)
 			}
 		}
