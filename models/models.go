@@ -7,11 +7,24 @@ import (
 )
 
 const (
-	GET_CANVAS = iota
-	SET_CANVAS
-	VIEW_PIXEL
-	DISCONNET
-	TEST
+	GET_CANVAS = 0
+	SET_CANVAS = 1
+	VIEW_PIXEL = 2
+	DISCONNET  = 3
+	TEST       = 4
+)
+
+const (
+	MUMBAI     = 1  // Blue
+	KOLKATA    = 2  // Purple
+	DELHI      = 3  // Navy Blue
+	BANGALORE  = 4  // Red
+	HYDERABAD  = 5  // Orange
+	CHENNAI    = 6  // Yellow
+	JAIPUR     = 7  // Pink
+	MOHALI     = 8  // Red (Silver Accents)
+	AHEMEDABAD = 9  // Light Blue
+	PUNE       = 10 // Lavender
 )
 
 type UserMessage struct {
