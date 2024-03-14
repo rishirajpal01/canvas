@@ -15,16 +15,16 @@ import (
 )
 
 // #region Verify User
-func VerifyUser(userMessage models.UserMessage) bool {
-	if userMessage.UserId == "" || userMessage.AuthToken == "" {
+func VerifyUser(userId string, authToken string) bool {
+	if userId == "" || authToken == "" {
 		return false
 	}
-	token, err := DecodeJWT(userMessage.AuthToken)
+	tokenContent, err := DecodeJWT(authToken)
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
-	return token.Claims.(jwt.MapClaims)["_id"] == userMessage.UserId
+	return tokenContent.Claims.(jwt.MapClaims)["_id"] == userId
 }
 
 func DecodeJWT(tokenString string) (*jwt.Token, error) {

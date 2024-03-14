@@ -42,21 +42,35 @@ func main() {
 	functions.MakeDefaultCanvas(redisClient)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		//#region User Auth
+		userId := r.URL.Query().Get("userId")
+		xAuthToken := r.Header.Get("X-Auth-Token")
+		isValidUser := functions.VerifyUser(userId, xAuthToken)
+		if !isValidUser {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Unauthorized"))
+			return
+		}
+		//#endregion User Auth
+
+		//#region Upgrade the HTTP connection to a websocket
 		websocket, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println(err)
 			return
 		}
+		log.Printf("User %v is connected!\n", userId)
 		defer websocket.Close()
+		//#endregion Upgrade the HTTP connection to a websocket
 
-		// Subscribe to the pixelUpdates channel
-
+		//#region Subscribe to the pixelUpdates channel
 		pubsub := redisClient.Subscribe(context.TODO(), "pixelUpdates")
 		defer pubsub.Close()
 		ch := pubsub.Channel()
 		rch := make(chan string, 100)
 		lch := make(chan string, 100)
-		log.Println("Websocket Connected!")
+		log.Println("Subscribed to pixelUpdates channel")
+		//#endregion Subscribe to the pixelUpdates channel
 
 		// Start a goroutine to receive messages from the channel
 		go func(wc chan string) {
@@ -105,22 +119,13 @@ func listen(conn *websocket.Conn, wc chan string) {
 		}
 		//#endregion read a message
 
-		//#region Verify User and their message
-		isValidUser := functions.VerifyUser(userMessage)
-		if !isValidUser {
-			wc <- "Not a valid user!"
-			err = conn.Close()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
+		//#region Verify User message
 
 		isValidMessage := functions.VerifyMessage(userMessage.MessageType)
 		if !isValidMessage {
 			wc <- "Not a valid message!"
 		}
-		//#endregion Verify User and their message
+		//#endregion Verify User message
 
 		if userMessage.MessageType == models.SET_CANVAS {
 			var placeTileMessage models.PlaceTileMessage
