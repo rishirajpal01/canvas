@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -27,6 +28,14 @@ var redisClient = redis.NewClient(&redis.Options{
 	DB:       0,
 })
 
+type Client struct {
+	Conn     *websocket.Conn
+	LastPong time.Time
+}
+
+var clients = make(map[*Client]bool)
+var mutex = &sync.Mutex{}
+
 var mongoClient, _ = mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
 
 func main() {
@@ -41,6 +50,8 @@ func main() {
 	fmt.Println("Redis Live, recieved: ", pong)
 
 	functions.MakeDefaultCanvas(redisClient)
+
+	go startPingPongChecker()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		//#region User Auth
@@ -102,25 +113,32 @@ func main() {
 }
 
 func listen(conn *websocket.Conn, wc chan string) {
-	// Done channel to close go routine handling ping pong
-	done := make(chan struct{})
-	defer close(done)
-	// Pong handler updates the deadline on every message revieved
-	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(20 * time.Second)); return nil })
+	//#region Ping Pong Handler
+
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				wc <- "Ping!"
-			}
+		for range ticker.C {
+			wc <- "Ping!"
 		}
 	}()
+
+	client := &Client{
+		Conn:     conn,
+		LastPong: time.Now(),
+	}
+
+	mutex.Lock()
+	clients[client] = true
+	mutex.Unlock()
+	conn.SetPongHandler(func(string) error { // Idea: set lastpong time only when pong is recieved
+		client.LastPong = time.Now()
+		return nil
+	})
+	//#endregion Ping Pong Handler
+
 	for {
-		// Set the read deadline to 20 seconds from now
+		// Set the read deadline to 30 seconds from now
 		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
 		//#region read a message
@@ -128,7 +146,6 @@ func listen(conn *websocket.Conn, wc chan string) {
 		if err != nil {
 			log.Println(err)
 			wc <- err.Error()
-			close(done)
 			return
 		}
 
@@ -253,4 +270,26 @@ func listen(conn *websocket.Conn, wc chan string) {
 		}
 
 	}
+}
+
+// startPingPongChecker checks if the clients are still connected
+func startPingPongChecker() {
+	ticker := time.NewTicker(5 * time.Second)
+	for range ticker.C {
+		checkClients()
+	}
+}
+
+// checkClients checks if the clients are still connected
+func checkClients() {
+	mutex.Lock()
+	for client := range clients {
+		if time.Since(client.LastPong) > 30*time.Second {
+			client.Conn.Close()
+			delete(clients, client)
+		} else {
+			client.Conn.WriteMessage(websocket.PingMessage, nil)
+		}
+	}
+	mutex.Unlock()
 }
