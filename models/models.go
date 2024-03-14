@@ -22,9 +22,8 @@ type UserMessage struct {
 }
 
 type PlaceTileMessage struct {
-	XCoordinate int `json:"xCoordinate"`
-	YCoordinate int `json:"yCoordinate"`
-	Color       int `json:"color"`
+	PixelId int `json:"pixelId"`
+	Color   int `json:"color"`
 }
 
 type SetPixelData struct {

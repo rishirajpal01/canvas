@@ -49,10 +49,7 @@ func VerifyMessage(messageType int) bool {
 }
 
 func VerifyPlaceTileMessage(placeTileMessage models.PlaceTileMessage) bool {
-	if placeTileMessage.XCoordinate < 0 || placeTileMessage.XCoordinate > 1000 {
-		return false
-	}
-	if placeTileMessage.YCoordinate < 0 || placeTileMessage.YCoordinate > 1000 {
+	if placeTileMessage.PixelId < 0 || placeTileMessage.PixelId > 40000 {
 		return false
 	}
 	if placeTileMessage.Color < 0 || placeTileMessage.Color > 15 {
@@ -114,10 +111,9 @@ func CanSetPixel(userId string, redisClient *redis.Client) (bool, string) {
 
 }
 
-func SetPixelAndPublish(x int, y int, color int, userId string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
-	pixelID := (y * 10) + x
+func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
 
-	a := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color))
+	a := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelId), fmt.Sprint(color))
 	_, err := a.Result()
 	if err != nil {
 		return false, err
@@ -130,7 +126,7 @@ func SetPixelAndPublish(x int, y int, color int, userId string, redisClient *red
 	}
 
 	//#region Publish on pub sub
-	mess := fmt.Sprintf("User: %s set pixelID #%d to color %d", userId, pixelID, color)
+	mess := fmt.Sprintf("User: %s set pixelID #%d to color %d", userId, pixelId, color)
 	err = redisClient.Publish(context.TODO(), "pixelUpdates", mess).Err()
 	if err != nil {
 		return false, err
@@ -144,12 +140,12 @@ func SetPixelAndPublish(x int, y int, color int, userId string, redisClient *red
 	}
 	setPixelData := models.SetPixelData{
 		UserId:    userObjectId,
-		PixelId:   pixelID,
+		PixelId:   pixelId,
 		Color:     color,
 		TimeStamp: time.Now(),
 	}
 
-	filter := bson.M{"userId": setPixelData.UserId}
+	filter := bson.M{"pixelId": setPixelData.PixelId}
 	update := bson.M{"$set": setPixelData}
 
 	updateOptions := options.Update().SetUpsert(true)
@@ -162,9 +158,8 @@ func SetPixelAndPublish(x int, y int, color int, userId string, redisClient *red
 	return true, nil
 }
 
-func GetPixel(x int, y int, mongoClient *mongo.Client) (models.SetPixelData, error) {
-	pixelID := (y * 10) + x
-	filter := bson.M{"pixelId": pixelID}
+func GetPixel(pixelId int, mongoClient *mongo.Client) (models.SetPixelData, error) {
+	filter := bson.M{"pixelId": pixelId}
 	var setPixelData models.SetPixelData
 	err := mongoClient.Database("canvas").Collection("setPixelData").FindOne(context.TODO(), filter).Decode(&setPixelData)
 	if err != nil {

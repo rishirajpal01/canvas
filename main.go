@@ -171,7 +171,7 @@ func listen(conn *websocket.Conn, wc chan string) {
 			//#endregion canSet pixel
 
 			//#region Set pixel
-			success, err := functions.SetPixelAndPublish(placeTileMessage.XCoordinate, placeTileMessage.YCoordinate, placeTileMessage.Color, userMessage.UserId, redisClient, mongoClient)
+			success, err := functions.SetPixelAndPublish(placeTileMessage.PixelId, placeTileMessage.Color, userMessage.UserId, redisClient, mongoClient)
 			if !success {
 				wc <- err.Error()
 			}
@@ -202,7 +202,7 @@ func listen(conn *websocket.Conn, wc chan string) {
 		} else if userMessage.MessageType == models.VIEW_PIXEL {
 
 			//#region Get Pixel
-			pixelValue, err := functions.GetPixel(userMessage.Content.XCoordinate, userMessage.Content.YCoordinate, mongoClient)
+			pixelValue, err := functions.GetPixel(userMessage.Content.PixelId, mongoClient)
 			if err != nil {
 				log.Println(err)
 				if err := conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
