@@ -88,13 +88,17 @@ func main() {
 			return
 		}
 		log.Printf("User %v is connected!\n", userId)
-		defer websocket.Close()
 		client := &Client{
 			Conn:     websocket,
 			LastPong: time.Now(),
 			UserId:   userId,
 		}
+		defer client.Conn.Close()
 		//#endregion Upgrade the HTTP connection to a websocket
+
+		mutex.Lock()
+		clients[client] = true
+		mutex.Unlock()
 
 		listen(client)
 	})
@@ -102,12 +106,10 @@ func main() {
 }
 
 func listen(client *Client) {
-	//#region Ping Pong Handler
 
 	//log the disconnect message if recieved by socket connection
 	defer func() {
 		log.Printf("User %v is disconnected!\n", client.UserId)
-		client.Conn.Close()
 		mutex.Lock()
 		delete(clients, client)
 		mutex.Unlock()
@@ -115,14 +117,9 @@ func listen(client *Client) {
 
 	log.Println("Listening to client: ", client.UserId)
 
-	mutex.Lock()
-	clients[client] = true
-	mutex.Unlock()
-	//#endregion Ping Pong Handler
-
 	for {
-		// Set the read deadline to 30 seconds from now
-		client.Conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		//set the last pong time to the current time on any event recieve
+		client.LastPong = time.Now()
 
 		//#region read a message
 		messageType, messageContent, err := client.Conn.ReadMessage()
@@ -287,7 +284,7 @@ func listen(client *Client) {
 
 // startPingPongChecker checks if the clients are still connected
 func startPingPongChecker() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
 		checkClients()
@@ -298,10 +295,12 @@ func startPingPongChecker() {
 func checkClients() {
 	mutex.Lock()
 	for client := range clients {
-		if time.Since(client.LastPong) > 30*time.Second {
+		if time.Since(client.LastPong) > 10*time.Second {
+			log.Println("Client is not responding, closing connection: ", client.UserId)
 			client.Conn.Close()
 			delete(clients, client)
 		} else {
+			log.Println("Sending ping to client: ", client.UserId)
 			client.Conn.WriteMessage(websocket.PingMessage, nil)
 		}
 	}
