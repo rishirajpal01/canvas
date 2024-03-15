@@ -156,32 +156,12 @@ func listen(client *Client) {
 		//#endregion Verify User message
 
 		if userMessage.MessageType == models.SET_CANVAS {
-			var placeTileMessage models.PlaceTileMessage
-
 			//#region Incoming Message Verifications
 
 			//turn userContent to bytes
-			contentBytes, err := json.Marshal(userMessage.Content)
-			if err != nil {
-				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
-					log.Println(err)
-					return
-				}
-				return
-			}
-
-			// turn bytes to placeTileMessage
-			err = json.Unmarshal(contentBytes, &placeTileMessage)
-			if err != nil {
-				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
-					log.Println(err)
-					return
-				}
-				return
-			}
 
 			// verify placeTileMessage
-			isValid := functions.VerifyPlaceTileMessage(placeTileMessage)
+			isValid := functions.VerifyPlaceTileMessage(userMessage.Content)
 			if !isValid {
 				if err := client.Conn.WriteMessage(messageType, []byte("Not a valid place tile request")); err != nil {
 					fmt.Println(err)
@@ -191,7 +171,7 @@ func listen(client *Client) {
 			//#endregion Incoming Message Verification
 
 			//#region canSet pixel
-			canSetPixel, message := functions.CanSetPixel(userMessage.UserId, redisClient)
+			canSetPixel, message := functions.CanSetPixel(client.UserId, redisClient)
 			if !canSetPixel {
 				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
 					log.Println(err)
@@ -202,7 +182,7 @@ func listen(client *Client) {
 			//#endregion canSet pixel
 
 			//#region Set pixel
-			success, err := functions.SetPixelAndPublish(placeTileMessage.PixelId, placeTileMessage.Color, userMessage.UserId, redisClient, mongoClient)
+			success, err := functions.SetPixelAndPublish(userMessage.Content.PixelId, userMessage.Content.Color, client.UserId, redisClient, mongoClient)
 			if !success {
 				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
 					log.Println(err)
