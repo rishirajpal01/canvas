@@ -171,7 +171,7 @@ func listen(client *Client) {
 			//#endregion Incoming Message Verification
 
 			//#region canSet pixel
-			canSetPixel, message := functions.CanSetPixel(client.UserId, redisClient)
+			canSetPixel, message := functions.CanSetPixel(client.UserId, userMessage.Content.PixelId, redisClient)
 			if !canSetPixel {
 				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
 					log.Println(err)
@@ -241,7 +241,7 @@ func listen(client *Client) {
 			//#endregion Send Pixel
 
 		} else if userMessage.MessageType == models.TEST {
-			canSet, message := functions.CanSetPixel(userMessage.UserId, redisClient)
+			canSet, message := functions.CanSetPixel(userMessage.UserId, userMessage.Content.PixelId, redisClient)
 			if canSet {
 				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
 					log.Println(err)

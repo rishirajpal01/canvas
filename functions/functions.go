@@ -91,7 +91,7 @@ func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
 
 // #region Canvas
 func GetCanvas(redisClient *redis.Client) ([]int64, error) {
-	responseArr := make([]int64, 100)
+	responseArr := make([]int64, 100) // todo: update correct value
 	val, err := redisClient.Get(context.TODO(), "canvas").Result()
 	if err != nil {
 		return responseArr, err
@@ -103,18 +103,34 @@ func GetCanvas(redisClient *redis.Client) ([]int64, error) {
 
 }
 
-func CanSetPixel(userId string, redisClient *redis.Client) (bool, string) {
-	expiry, err := redisClient.Get(context.TODO(), userId).Result()
-	if err != nil {
+func CanSetPixel(userId string, pixelId int, redisClient *redis.Client) (bool, string) {
+	userCooldown, userCooldownError := redisClient.Get(context.TODO(), userId).Result()
+	pixelCooldown, pixelCooldownError := redisClient.Get(context.TODO(), fmt.Sprintf("PIXEL:%d", pixelId)).Result()
+
+	if userCooldownError == redis.Nil && pixelCooldownError == redis.Nil {
 		return true, "Can set pixel because no data in redis!"
 	}
-	secsLeft, err := time.Parse(time.RFC3339, expiry)
-	if err != nil {
-		return false, err.Error()
+
+	if userCooldown != "" {
+		secsLeft, err := time.Parse(time.RFC3339, userCooldown)
+		if err != nil {
+			return false, fmt.Sprintf("Error parsing expiry: %v", err)
+		}
+		if userCooldown != "" {
+			return false, fmt.Sprintf("User Cooldown: Wait for %v before placing another pixel!", time.Until(secsLeft))
+		}
 	}
-	if expiry != "" {
-		return false, fmt.Sprintf("Wait for %v secs before placing another pixel!", time.Until(secsLeft))
+
+	if pixelCooldown != "" {
+		secsLeft, err := time.Parse(time.RFC3339, pixelCooldown)
+		if err != nil {
+			return false, fmt.Sprintf("Error parsing expiry: %v", err)
+		}
+		if pixelCooldown != "" {
+			return false, fmt.Sprintf("Pixel Cooldown: Wait for %v before placing another pixel!", time.Until(secsLeft))
+		}
 	}
+
 	return true, "Can set pixel!"
 
 }
@@ -125,9 +141,13 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	if err != nil {
 		return false, err
 	}
-	expiry := time.Now().Add(30 * time.Second).Format(time.RFC3339)      //todo: Real Value is 1 min
-	b := redisClient.Do(context.TODO(), "SET", userId, expiry, "EX", 30) //todo: Real Value is 1 min
-	_, err = b.Result()
+	userCooldown := time.Now().Add(models.USERCOOLDOWN * time.Second).Format(time.RFC3339)                   //todo: Real Value is 1 min
+	pixelCooldown := time.Now().Add(models.PIXELCOOLDOWN * time.Second).Format(time.RFC3339)                 //todo: Real Value is 1 min
+	_, err = redisClient.Do(context.TODO(), "SET", userId, userCooldown, "EX", models.USERCOOLDOWN).Result() //todo: Real Value is 1 min
+	if err != nil {
+		return false, err
+	}
+	_, err = redisClient.Do(context.TODO(), "SET", fmt.Sprintf("PIXEL:%d", pixelId), pixelCooldown, "EX", models.PIXELCOOLDOWN).Result()
 	if err != nil {
 		return false, err
 	}

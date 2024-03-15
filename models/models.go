@@ -27,6 +27,11 @@ const (
 	PUNE       = 10 // Lavender
 )
 
+const (
+	USERCOOLDOWN  = 10
+	PIXELCOOLDOWN = 20
+)
+
 type UserMessage struct {
 	UserId      string           `json:"userId"`
 	AuthToken   string           `json:"authToken"`
