@@ -42,6 +42,9 @@ func main() {
 
 	defer mongoClient.Disconnect(context.Background())
 	defer redisClient.Close()
+	pubsub := redisClient.Subscribe(context.TODO(), "pixelUpdates")
+	defer pubsub.Close()
+	redisSubChan := pubsub.Channel()
 
 	pong, err := redisClient.Ping(context.TODO()).Result()
 	if err != nil {
@@ -52,6 +55,18 @@ func main() {
 	functions.MakeDefaultCanvas(redisClient)
 
 	go startPingPongChecker()
+
+	go func() {
+		for msg := range redisSubChan {
+			mutex.Lock()
+			for client := range clients {
+				if err := client.Conn.WriteMessage(1, []byte("redisChannel: "+msg.Payload)); err != nil {
+					log.Println("error writing to websocket:", err)
+				}
+			}
+			mutex.Unlock()
+		}
+	}()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		//#region User Auth
@@ -78,30 +93,6 @@ func main() {
 			LastPong: time.Now(),
 		}
 		//#endregion Upgrade the HTTP connection to a websocket
-
-		//#region Subscribe to the pixelUpdates channel
-		pubsub := redisClient.Subscribe(context.TODO(), "pixelUpdates")
-		defer pubsub.Close()
-		ch := pubsub.Channel()
-		rch := make(chan string, 100)
-		log.Println("Subscribed to pixelUpdates channel")
-		//#endregion Subscribe to the pixelUpdates channel
-
-		// Start a goroutine to receive messages from the channel
-		go func(wc chan string) {
-			for msg := range ch {
-				// Send the message to the client
-				wc <- msg.Payload
-			}
-		}(rch)
-
-		go func() {
-			for msg := range rch {
-				if err := client.Conn.WriteMessage(1, []byte("redisChannel: "+msg)); err != nil {
-					log.Println("error writing to websocket:", err)
-				}
-			}
-		}()
 
 		listen(client)
 	})
