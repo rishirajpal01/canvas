@@ -80,8 +80,7 @@ func MakeDefaultCanvas(redisClient *redis.Client) error {
 }
 
 func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
-	a := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color))
-	_, err := a.Result()
+	_, err := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
 	if err != nil {
 		return err
 	}
