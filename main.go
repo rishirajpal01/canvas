@@ -97,7 +97,7 @@ func main() {
 
 		go func() {
 			for msg := range rch {
-				if err := websocket.WriteMessage(1, []byte("redisChannel: "+msg)); err != nil {
+				if err := client.Conn.WriteMessage(1, []byte("redisChannel: "+msg)); err != nil {
 					log.Println("error writing to websocket:", err)
 				}
 			}
