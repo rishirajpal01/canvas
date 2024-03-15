@@ -264,7 +264,7 @@ func listen(client *Client) {
 
 // startPingPongChecker checks if the clients are still connected
 func startPingPongChecker() {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(models.PING_INTERVAL * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
 		checkClients()
@@ -275,7 +275,7 @@ func startPingPongChecker() {
 func checkClients() {
 	mutex.Lock()
 	for client := range clients {
-		if time.Since(client.LastPong) > 10*time.Second {
+		if time.Since(client.LastPong) > models.DISCONNECT_AFTER_SECS*time.Second {
 			log.Println("Client is not responding, closing connection: ", client.UserId)
 			client.Conn.Close()
 			delete(clients, client)

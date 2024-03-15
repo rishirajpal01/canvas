@@ -32,6 +32,11 @@ const (
 	PIXELCOOLDOWN = 20
 )
 
+const (
+	DISCONNECT_AFTER_SECS = 30
+	PING_INTERVAL         = 5
+)
+
 type UserMessage struct {
 	UserId      string           `json:"userId"`
 	AuthToken   string           `json:"authToken"`
