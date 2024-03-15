@@ -104,6 +104,15 @@ func main() {
 func listen(client *Client) {
 	//#region Ping Pong Handler
 
+	//log the disconnect message if recieved by socket connection
+	defer func() {
+		log.Printf("User %v is disconnected!\n", client.UserId)
+		client.Conn.Close()
+		mutex.Lock()
+		delete(clients, client)
+		mutex.Unlock()
+	}()
+
 	log.Println("Listening to client: ", client.UserId)
 
 	mutex.Lock()
