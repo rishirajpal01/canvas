@@ -4,6 +4,7 @@ import (
 	"canvas/models"
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -62,25 +63,29 @@ func VerifyPlaceTileMessage(placeTileMessage models.PlaceTileMessage) bool {
 
 // #region Set Default Canvas
 func MakeDefaultCanvas(redisClient *redis.Client) error {
+	start := time.Now()
+	pipe := redisClient.Pipeline()
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 10; j++ {
-			_, err := SetPixel(i, j, 0, redisClient)
-			if err != nil {
-				return err
-			}
+			pixelID := (j * 10) + i
+			pipe.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0))
 		}
 	}
+	_, err := pipe.Exec(context.TODO())
+	if err != nil {
+		return err
+	}
+	log.Println("MakeDefaultCanvas took", time.Since(start))
 	return nil
 }
 
-func SetPixel(x int, y int, color int, redisClient *redis.Client) (bool, error) {
-	pixelID := (y * 10) + x
+func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
 	a := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color))
 	_, err := a.Result()
 	if err != nil {
-		return false, err
+		return err
 	}
-	return true, nil
+	return nil
 }
 
 //#endregion Set Default Canvas
@@ -117,8 +122,7 @@ func CanSetPixel(userId string, redisClient *redis.Client) (bool, string) {
 
 func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
 
-	a := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelId), fmt.Sprint(color))
-	_, err := a.Result()
+	err := SetPixel(pixelId, color, redisClient)
 	if err != nil {
 		return false, err
 	}
