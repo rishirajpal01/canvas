@@ -1,6 +1,7 @@
 package main
 
 import (
+	"canvas/connections"
 	"canvas/functions"
 	"canvas/models"
 	"context"
@@ -12,9 +13,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var upgrader = websocket.Upgrader{
@@ -22,38 +20,31 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var redisClient = redis.NewClient(&redis.Options{
-	Addr:     "localhost:6379",
-	Password: "",
-	DB:       0,
-})
-
-type Client struct {
-	Conn     *websocket.Conn
-	LastPong time.Time
-	UserId   string
-}
-
-var clients = make(map[*Client]bool)
+var clients = make(map[*models.Client]bool)
 var mutex = &sync.Mutex{}
-
-var mongoClient, _ = mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
 
 func main() {
 
-	defer mongoClient.Disconnect(context.Background())
-	defer redisClient.Close()
-	pubsub := redisClient.Subscribe(context.TODO(), "pixelUpdates")
-	defer pubsub.Close()
-	redisSubChan := pubsub.Channel()
-
-	pong, err := redisClient.Ping(context.TODO()).Result()
+	// Redis Live Check
+	pong, err := connections.RedisClient.Ping(context.TODO()).Result()
 	if err != nil {
 		panic(fmt.Sprintf("Redis is not live: %v", err))
 	}
-	fmt.Println("Redis Live, recieved: ", pong)
+	log.Println("Redis Live, recieved: ", pong)
+	// Mongo Live Check
+	err = connections.MongoClient.Ping(context.Background(), nil)
+	if err != nil {
+		panic(fmt.Sprintf("Mongo is not live: %v", err))
+	}
+	log.Println("Mongo Live")
 
-	functions.MakeDefaultCanvas(redisClient)
+	defer connections.MongoClient.Disconnect(context.Background())
+	defer connections.RedisClient.Close()
+	pubsub := connections.RedisClient.Subscribe(context.TODO(), "pixelUpdates")
+	defer pubsub.Close()
+	redisSubChan := pubsub.Channel()
+
+	functions.MakeDefaultCanvas(connections.RedisClient)
 
 	go startPingPongChecker()
 
@@ -88,7 +79,7 @@ func main() {
 			return
 		}
 		log.Printf("User %v is connected!\n", userId)
-		client := &Client{
+		client := &models.Client{
 			Conn:     websocket,
 			LastPong: time.Now(),
 			UserId:   userId,
@@ -105,7 +96,7 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-func listen(client *Client) {
+func listen(client *models.Client) {
 
 	//log the disconnect message if recieved by socket connection
 	defer func() {
@@ -171,7 +162,7 @@ func listen(client *Client) {
 			//#endregion Incoming Message Verification
 
 			//#region canSet pixel
-			canSetPixel, message := functions.CanSetPixel(client.UserId, userMessage.Content.PixelId, redisClient)
+			canSetPixel, message := functions.CanSetPixel(client.UserId, userMessage.Content.PixelId, connections.RedisClient)
 			if !canSetPixel {
 				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
 					log.Println(err)
@@ -182,7 +173,7 @@ func listen(client *Client) {
 			//#endregion canSet pixel
 
 			//#region Set pixel
-			success, err := functions.SetPixelAndPublish(userMessage.Content.PixelId, userMessage.Content.Color, client.UserId, redisClient, mongoClient)
+			success, err := functions.SetPixelAndPublish(userMessage.Content.PixelId, userMessage.Content.Color, client.UserId, connections.RedisClient, connections.MongoClient)
 			if !success {
 				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
 					log.Println(err)
@@ -201,7 +192,7 @@ func listen(client *Client) {
 		} else if userMessage.MessageType == models.GET_CANVAS {
 
 			//#region Get Canvas
-			val, err := functions.GetCanvas(redisClient)
+			val, err := functions.GetCanvas(connections.RedisClient)
 			if err != nil {
 				log.Println(err)
 				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
@@ -222,7 +213,7 @@ func listen(client *Client) {
 		} else if userMessage.MessageType == models.VIEW_PIXEL {
 
 			//#region Get Pixel
-			pixelValue, err := functions.GetPixel(userMessage.Content.PixelId, mongoClient)
+			pixelValue, err := functions.GetPixel(userMessage.Content.PixelId, connections.MongoClient)
 			if err != nil {
 				log.Println(err)
 				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
@@ -241,7 +232,7 @@ func listen(client *Client) {
 			//#endregion Send Pixel
 
 		} else if userMessage.MessageType == models.TEST {
-			canSet, message := functions.CanSetPixel(userMessage.UserId, userMessage.Content.PixelId, redisClient)
+			canSet, message := functions.CanSetPixel(userMessage.UserId, userMessage.Content.PixelId, connections.RedisClient)
 			if canSet {
 				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
 					log.Println(err)

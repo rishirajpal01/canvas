@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -36,6 +37,12 @@ const (
 	DISCONNECT_AFTER_SECS = 30
 	PING_INTERVAL         = 5
 )
+
+type Client struct {
+	Conn     *websocket.Conn
+	LastPong time.Time
+	UserId   string
+}
 
 type UserMessage struct {
 	UserId      string           `json:"userId"`
