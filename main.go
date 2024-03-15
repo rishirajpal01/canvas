@@ -31,6 +31,7 @@ var redisClient = redis.NewClient(&redis.Options{
 type Client struct {
 	Conn     *websocket.Conn
 	LastPong time.Time
+	UserId   string
 }
 
 var clients = make(map[*Client]bool)
@@ -91,6 +92,7 @@ func main() {
 		client := &Client{
 			Conn:     websocket,
 			LastPong: time.Now(),
+			UserId:   userId,
 		}
 		//#endregion Upgrade the HTTP connection to a websocket
 
@@ -102,21 +104,11 @@ func main() {
 func listen(client *Client) {
 	//#region Ping Pong Handler
 
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			client.Conn.WriteMessage(1, []byte("Ping!"))
-		}
-	}()
+	log.Println("Listening to client: ", client.UserId)
 
 	mutex.Lock()
 	clients[client] = true
 	mutex.Unlock()
-	client.Conn.SetPongHandler(func(string) error { // Idea: set lastpong time only when pong is recieved
-		client.LastPong = time.Now()
-		return nil
-	})
 	//#endregion Ping Pong Handler
 
 	for {
@@ -287,6 +279,7 @@ func listen(client *Client) {
 // startPingPongChecker checks if the clients are still connected
 func startPingPongChecker() {
 	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 	for range ticker.C {
 		checkClients()
 	}
