@@ -26,6 +26,10 @@ const (
 )
 
 const (
+	NUM_OF_WORKERS = 150
+)
+
+const (
 	DISCONNECT_AFTER_SECS = 30
 	PING_INTERVAL         = 5
 )

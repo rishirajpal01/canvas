@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 )
 
 var upgrader = websocket.Upgrader{
@@ -31,32 +32,31 @@ func main() {
 		panic(fmt.Sprintf("Redis is not live: %v", err))
 	}
 	log.Println("Redis Live, recieved: ", pong)
+	defer connections.RedisClient.Close()
 	// Mongo Live Check
 	err = connections.MongoClient.Ping(context.Background(), nil)
 	if err != nil {
 		panic(fmt.Sprintf("Mongo is not live: %v", err))
 	}
 	log.Println("Mongo Live")
-
 	defer connections.MongoClient.Disconnect(context.Background())
-	defer connections.RedisClient.Close()
+
+	// Subscribe to the pixelUpdates channel
 	pubsub := connections.RedisClient.Subscribe(context.TODO(), "pixelUpdates")
 	defer pubsub.Close()
 	redisSubChan := pubsub.Channel()
 
 	functions.MakeDefaultCanvas(connections.RedisClient)
 
-	go startPingPongChecker()
+	// Creates a channel for the jobs.
+	jobs := make(chan *models.Client, models.NUM_OF_WORKERS)
 
-	go func() {
-		for msg := range redisSubChan {
-			mutex.Lock()
-			for client := range clients {
-				client.RedisChan <- []byte(msg.Payload)
-			}
-			mutex.Unlock()
-		}
-	}()
+	for i := 0; i < models.NUM_OF_WORKERS; i++ {
+		go worker(jobs)
+	}
+
+	go broadcastRedisMessages(redisSubChan, clients)
+	go startPingPongChecker()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		//#region User Auth
@@ -74,6 +74,8 @@ func main() {
 		websocket, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Error upgrading to websocket!"))
 			return
 		}
 		client := &models.Client{
@@ -84,14 +86,14 @@ func main() {
 			UserId:     userId,
 		}
 		go client.WriteEvents()
-		defer client.Conn.Close()
 		//#endregion Upgrade the HTTP connection to a websocket
 
 		mutex.Lock()
 		clients[client] = true
 		mutex.Unlock()
 
-		listen(client)
+		// listen(client)
+		jobs <- client
 	})
 	http.ListenAndServe(":8080", nil)
 }
@@ -227,5 +229,19 @@ func checkClients() {
 		} else {
 			client.Conn.WriteMessage(websocket.PingMessage, nil)
 		}
+	}
+}
+
+func broadcastRedisMessages(redisSubChan <-chan *redis.Message, clients map[*models.Client]bool) {
+	for msg := range redisSubChan {
+		for client := range clients {
+			client.RedisChan <- []byte(msg.Payload)
+		}
+	}
+}
+
+func worker(jobs <-chan *models.Client) {
+	for client := range jobs {
+		listen(client)
 	}
 }
