@@ -152,7 +152,7 @@ func listen(client *models.Client) {
 			//turn userContent to bytes
 
 			// verify placeTileMessage
-			isValid := functions.VerifyPlaceTileMessage(userMessage.Content)
+			isValid := functions.VerifyPlaceTileMessage(userMessage.PixelId, userMessage.Color)
 			if !isValid {
 				if err := client.Conn.WriteMessage(messageType, []byte("Not a valid place tile request")); err != nil {
 					fmt.Println(err)
@@ -162,7 +162,7 @@ func listen(client *models.Client) {
 			//#endregion Incoming Message Verification
 
 			//#region canSet pixel
-			canSetPixel, message := functions.CanSetPixel(client.UserId, userMessage.Content.PixelId, connections.RedisClient)
+			canSetPixel, message := functions.CanSetPixel(client.UserId, userMessage.PixelId, connections.RedisClient)
 			if !canSetPixel {
 				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
 					log.Println(err)
@@ -173,7 +173,7 @@ func listen(client *models.Client) {
 			//#endregion canSet pixel
 
 			//#region Set pixel
-			success, err := functions.SetPixelAndPublish(userMessage.Content.PixelId, userMessage.Content.Color, client.UserId, connections.RedisClient, connections.MongoClient)
+			success, err := functions.SetPixelAndPublish(userMessage.PixelId, userMessage.Color, client.UserId, connections.RedisClient, connections.MongoClient)
 			if !success {
 				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
 					log.Println(err)
@@ -213,7 +213,7 @@ func listen(client *models.Client) {
 		} else if userMessage.MessageType == models.VIEW_PIXEL {
 
 			//#region Get Pixel
-			pixelValue, err := functions.GetPixel(userMessage.Content.PixelId, connections.MongoClient)
+			pixelValue, err := functions.GetPixel(userMessage.PixelId, connections.MongoClient)
 			if err != nil {
 				log.Println(err)
 				if err := client.Conn.WriteMessage(messageType, []byte(err.Error())); err != nil {
@@ -232,7 +232,7 @@ func listen(client *models.Client) {
 			//#endregion Send Pixel
 
 		} else if userMessage.MessageType == models.TEST {
-			canSet, message := functions.CanSetPixel(userMessage.UserId, userMessage.Content.PixelId, connections.RedisClient)
+			canSet, message := functions.CanSetPixel(client.UserId, userMessage.PixelId, connections.RedisClient)
 			if canSet {
 				if err := client.Conn.WriteMessage(messageType, []byte(message)); err != nil {
 					log.Println(err)

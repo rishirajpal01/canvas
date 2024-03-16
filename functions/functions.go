@@ -49,11 +49,11 @@ func VerifyMessage(messageType int) bool {
 	return true
 }
 
-func VerifyPlaceTileMessage(placeTileMessage models.PlaceTileMessage) bool {
-	if placeTileMessage.PixelId < 0 || placeTileMessage.PixelId > 40000 {
+func VerifyPlaceTileMessage(pixelId int, color int) bool {
+	if pixelId < 0 || pixelId > 40000 {
 		return false
 	}
-	if placeTileMessage.Color < 0 || placeTileMessage.Color > 15 {
+	if color < 0 || color > 15 {
 		return false
 	}
 	return true
@@ -177,7 +177,7 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 
 	updateOptions := options.Update().SetUpsert(true)
 
-	_, err = mongoClient.Database("canvas").Collection("setPixelData").UpdateOne(context.TODO(), filter, update, updateOptions)
+	_, err = mongoClient.Database("canvas").Collection("pixelUpdates").UpdateOne(context.TODO(), filter, update, updateOptions)
 	if err != nil {
 		return false, err
 	}
@@ -188,7 +188,7 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 func GetPixel(pixelId int, mongoClient *mongo.Client) (models.SetPixelData, error) {
 	filter := bson.M{"pixelId": pixelId}
 	var setPixelData models.SetPixelData
-	err := mongoClient.Database("canvas").Collection("setPixelData").FindOne(context.TODO(), filter).Decode(&setPixelData)
+	err := mongoClient.Database("canvas").Collection("pixelUpdates").FindOne(context.TODO(), filter).Decode(&setPixelData)
 	if err != nil {
 		return setPixelData, err
 	}
