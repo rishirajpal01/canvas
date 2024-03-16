@@ -50,9 +50,11 @@ func main() {
 
 	go func() {
 		for msg := range redisSubChan {
+			mutex.Lock()
 			for client := range clients {
 				client.RedisChan <- []byte(msg.Payload)
 			}
+			mutex.Unlock()
 		}
 	}()
 
@@ -215,15 +217,15 @@ func startPingPongChecker() {
 
 // checkClients checks if the clients are still connected
 func checkClients() {
-	mutex.Lock()
 	for client := range clients {
 		if time.Since(client.LastPong) > models.DISCONNECT_AFTER_SECS*time.Second {
 			log.Println("Client is not responding, closing connection: ", client.UserId)
+			mutex.Lock()
 			client.Conn.Close()
 			delete(clients, client)
+			mutex.Unlock()
 		} else {
 			client.Conn.WriteMessage(websocket.PingMessage, nil)
 		}
 	}
-	mutex.Unlock()
 }
