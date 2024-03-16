@@ -1,6 +1,7 @@
 package models
 
 import (
+	"log"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -30,7 +31,37 @@ const (
 )
 
 type Client struct {
-	Conn     *websocket.Conn
-	LastPong time.Time
-	UserId   string
+	Conn       *websocket.Conn
+	ServerChan chan []byte
+	RedisChan  chan []byte
+	LastPong   time.Time
+	UserId     string
+}
+
+func (c *Client) WriteEvents() {
+	for {
+		select {
+		case message, ok := <-c.ServerChan:
+			if !ok {
+				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			err := c.Conn.WriteMessage(websocket.TextMessage, message)
+			if err != nil {
+				log.Println("error writing to websocket:", err)
+			}
+		case message, ok := <-c.RedisChan:
+			if !ok {
+				// The channel is closed.
+				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+
+			err := c.Conn.WriteMessage(websocket.TextMessage, message)
+			if err != nil {
+				log.Println("error writing to websocket:", err)
+				return
+			}
+		}
+	}
 }
