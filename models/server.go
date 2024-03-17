@@ -21,8 +21,8 @@ const (
 )
 
 const (
-	USERCOOLDOWN  = 10
-	PIXELCOOLDOWN = 20
+	USER_COOLDOWN_PERIOD  = 10
+	PIXEL_COOLDOWN_PERIOD = 20
 )
 
 const (
@@ -56,7 +56,6 @@ func (c *Client) WriteEvents() {
 			}
 		case message, ok := <-c.RedisChan:
 			if !ok {
-				// The channel is closed.
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -64,7 +63,6 @@ func (c *Client) WriteEvents() {
 			err := c.Conn.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
 				log.Println("error writing to websocket:", err)
-				return
 			}
 		}
 	}

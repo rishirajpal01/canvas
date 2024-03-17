@@ -8,12 +8,31 @@ type PixelUpdate struct {
 
 // ServerResponse Codes
 const (
-	Success  = 1
-	Cooldown = 2
-	Error    = 3
+	Success       = 1
+	UserCooldown  = 2
+	PixelCooldown = 3
+	Update        = 4
+	Error         = 5
 )
 
 type ServerResponse struct {
 	MessageType int    `json:"messageType"`
 	Message     string `json:"message"`
+}
+
+type GetCanvas struct {
+	MessageType int     `json:"messageType"`
+	Canvas      []int64 `json:"canvas"`
+}
+
+type GetPixel struct {
+	MessageType int `json:"messageType"`
+	SetPixelData
+}
+
+type ServerPixelUpdate struct {
+	MessageType int    `json:"messageType"`
+	UserId      string `json:"userId"`
+	PixelId     int    `json:"pixelId"`
+	Color       int    `json:"color"`
 }

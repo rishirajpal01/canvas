@@ -23,7 +23,7 @@ type UserMessage struct {
 
 type SetPixelData struct {
 	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-	PixelId   int                `json:"xCoordinate" bson:"pixelId"`
+	PixelId   int                `json:"pixelId" bson:"pixelId"`
 	Color     int                `json:"color" bson:"color"`
 	TimeStamp time.Time          `json:"timeStamp" bson:"timeStamp"`
 }
