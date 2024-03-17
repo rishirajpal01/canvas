@@ -113,7 +113,16 @@ func listen(client *models.Client) {
 		client.LastPong = time.Now()
 
 		//#region read a message
-		_, messageContent, err := client.Conn.ReadMessage()
+		messageType, messageContent, err := client.Conn.ReadMessage()
+		if messageType == websocket.CloseMessage || messageType == -1 {
+			close(client.ServerChan)
+			close(client.RedisChan)
+			mutex.Lock()
+			delete(clients, client)
+			mutex.Unlock()
+			client.Conn.Close()
+			return
+		}
 		if err != nil {
 			log.Println(err)
 			client.ServerChan <- []byte("Error reading message from connection!")
