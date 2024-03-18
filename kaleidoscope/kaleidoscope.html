@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Canvas Updater</title>
+    <style>
+        #canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <script>
+
+        var colors = [
+            {pixelId: 1, color: '#005DA0'},
+            {pixelId: 2, color: '#3A225D'},
+            {pixelId: 3, color: '#004C93'},
+            {pixelId: 4, color: '#B5076B'},
+            {pixelId: 5, color: '#FF822A'},
+            {pixelId: 6, color: '#FDB913'},
+            {pixelId: 7, color: '#EB008B'},
+            {pixelId: 8, color: '#DC0000'},
+            {pixelId: 9, color: '#00AEEF'},
+            {pixelId: 10, color: '#A288E3'},
+        ]
+        var canvasMap = new Map();
+        for (let data of colors) {
+            canvasMap.set(data.pixelId, data.color);
+        }
+        const canvasWidth = 200;
+        const canvasHeight = 200;
+        const pixelSize = 1;
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'canvas';
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        document.body.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+
+        const ws = new WebSocket('ws://172.29.45.219:8080/?userId=6006d1f12388430c57166969');
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            const x = data.pixelId % canvas.width;
+            const y = Math.floor(data.pixelId / canvas.width);
+            ctx.fillStyle = canvasMap.get(data.color);
+            ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+        };
+
+        ws.onerror = function(error) {
+            console.log(`WebSocket error: ${error}`);
+        };
+    </script>
+</body>
+</html>
