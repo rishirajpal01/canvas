@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -64,24 +63,22 @@ func VerifyPlaceTileMessage(pixelId int, color int) bool {
 
 // #region Set Default Canvas
 func MakeDefaultCanvas(redisClient *redis.Client) error {
-	start := time.Now()
 	pipe := redisClient.Pipeline()
-	for i := 0; i < 10; i++ {
-		for j := 0; j < 10; j++ {
-			pixelID := (j * 10) + i
-			pipe.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0))
+	for i := 0; i < 200; i++ {
+		for j := 0; j < 200; j++ {
+			pixelID := (j * 200) + i
+			pipe.Do(context.TODO(), "BITFIELD", "canvas", "SET", "u8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0))
 		}
 	}
 	_, err := pipe.Exec(context.TODO())
 	if err != nil {
 		return err
 	}
-	log.Println("MakeDefaultCanvas took", time.Since(start))
 	return nil
 }
 
 func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
-	_, err := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
+	_, err := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "u8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
 	if err != nil {
 		return err
 	}
@@ -92,7 +89,7 @@ func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
 
 // #region Canvas
 func GetCanvas(redisClient *redis.Client) ([]int64, error) {
-	responseArr := make([]int64, 100) // todo: update correct value
+	responseArr := make([]int64, 40000)
 	val, err := redisClient.Get(context.TODO(), "canvas").Result()
 	if err != nil {
 		return responseArr, err
@@ -103,38 +100,6 @@ func GetCanvas(redisClient *redis.Client) ([]int64, error) {
 	return responseArr, nil
 
 }
-
-// func CheckPixel(userId string, pixelId int, redisClient *redis.Client) (userCoolDownRes bool, pixelCooldownRes bool, message string) {
-// 	userCooldown, userCooldownError := redisClient.Get(context.TODO(), userId).Result()
-// 	pixelCooldown, pixelCooldownError := redisClient.Get(context.TODO(), fmt.Sprintf("PIXEL:%d", pixelId)).Result()
-
-// 	if userCooldownError == redis.Nil && pixelCooldownError == redis.Nil {
-// 		return false, false, ""
-// 	}
-
-// 	if userCooldown != "" {
-// 		secsLeft, err := time.Parse(time.RFC3339, userCooldown)
-// 		if err != nil {
-// 			return true, false, "Error calculating user cooldown expiry"
-// 		}
-// 		if userCooldown != "" {
-// 			return true, false, fmt.Sprintf("User Cooldown: Wait for %v before placing another pixel!", time.Until(secsLeft))
-// 		}
-// 	}
-
-// 	if pixelCooldown != "" {
-// 		secsLeft, err := time.Parse(time.RFC3339, pixelCooldown)
-// 		if err != nil {
-// 			return false, true, "Error calculating pixel cooldown expiry"
-// 		}
-// 		if pixelCooldown != "" {
-// 			return false, true, fmt.Sprintf("Pixel Cooldown: Wait for %v before placing another pixel!", time.Until(secsLeft))
-// 		}
-// 	}
-
-// 	return false, false, "Can set pixel!"
-
-// }
 
 func CheckUserCooldown(userId string, redisClient *redis.Client) (bool, string) {
 	userCooldown, userCooldownError := redisClient.Get(context.TODO(), userId).Result()
@@ -178,9 +143,9 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	if err != nil {
 		return false, err
 	}
-	userCooldown := time.Now().Add(models.USER_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)                   //todo: Real Value is 1 min
-	pixelCooldown := time.Now().Add(models.PIXEL_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)                 //todo: Real Value is 1 min
-	_, err = redisClient.Do(context.TODO(), "SET", userId, userCooldown, "EX", models.USER_COOLDOWN_PERIOD).Result() //todo: Real Value is 1 min
+	userCooldown := time.Now().Add(models.USER_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
+	pixelCooldown := time.Now().Add(models.PIXEL_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
+	_, err = redisClient.Do(context.TODO(), "SET", userId, userCooldown, "EX", models.USER_COOLDOWN_PERIOD).Result()
 	if err != nil {
 		return false, err
 	}

@@ -73,7 +73,7 @@ func main() {
 		//#region Upgrade the HTTP connection to a websocket
 		websocket, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Println(err)
+			log.Println("ERR0: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Error upgrading to websocket!"))
 			return
@@ -124,7 +124,7 @@ func listen(client *models.Client) {
 			return
 		}
 		if err != nil {
-			log.Println(err)
+			log.Println("ERR1: ", err)
 			client.ServerChan <- []byte("ERR128: Internal server error!")
 			return
 		}
@@ -132,7 +132,7 @@ func listen(client *models.Client) {
 		var userMessage models.UserMessage
 		err = json.Unmarshal(messageContent, &userMessage)
 		if err != nil {
-			log.Println(err)
+			log.Println("ERR2: ", err)
 			client.ServerChan <- []byte("ERR136: Internal server error!")
 			return
 		}
@@ -147,7 +147,7 @@ func listen(client *models.Client) {
 				Message:     "Not a valid message!",
 			})
 			if err != nil {
-				log.Println(err)
+				log.Println("ERR3: ", err)
 			}
 			client.ServerChan <- response
 			continue
@@ -171,7 +171,7 @@ func listen(client *models.Client) {
 					Message:     message,
 				})
 				if err != nil {
-					log.Println(err)
+					log.Println("ERR4: ", err)
 				}
 				client.ServerChan <- response
 				continue
@@ -183,7 +183,7 @@ func listen(client *models.Client) {
 					Message:     message,
 				})
 				if err != nil {
-					log.Println(err)
+					log.Println("ERR5: ", err)
 				}
 				client.ServerChan <- response
 				continue
@@ -193,7 +193,7 @@ func listen(client *models.Client) {
 			//#region Set pixel
 			success, err := functions.SetPixelAndPublish(userMessage.PixelId, userMessage.Color, client.UserId, connections.RedisClient, connections.MongoClient)
 			if !success {
-				log.Println(err)
+				log.Println("ERR6: ", err)
 				response, err := json.Marshal(models.ServerResponse{
 					MessageType: models.Error,
 					Message:     "Error setting pixel!",
@@ -211,7 +211,7 @@ func listen(client *models.Client) {
 				Message:     "Pixel set!",
 			})
 			if err != nil {
-				log.Println(err)
+				log.Println("ERR7: ", err)
 			}
 			client.ServerChan <- response
 			//#endregion Send Response
@@ -221,7 +221,7 @@ func listen(client *models.Client) {
 			//#region Get Canvas
 			val, err := functions.GetCanvas(connections.RedisClient)
 			if err != nil {
-				log.Println(err)
+				log.Println("ERR8: ", err)
 				client.ServerChan <- []byte("Error getting canvas!")
 			}
 			//#endregion Get Canvas
@@ -232,7 +232,7 @@ func listen(client *models.Client) {
 				Canvas:      val,
 			})
 			if err != nil {
-				log.Println(err)
+				log.Println("ERR9: ", err)
 			}
 			client.ServerChan <- response
 			//#endregion Send Canvas
@@ -242,7 +242,7 @@ func listen(client *models.Client) {
 			//#region Get Pixel
 			pixelValue, err := functions.GetPixel(userMessage.PixelId, connections.MongoClient)
 			if err != nil {
-				log.Println(err)
+				log.Println("ERR10: ", err)
 				client.ServerChan <- []byte("Error viewing pixel")
 			}
 			//#endregion Get Pixel
@@ -253,7 +253,7 @@ func listen(client *models.Client) {
 				SetPixelData: pixelValue,
 			})
 			if err != nil {
-				log.Println(err)
+				log.Println("ERR10: ", err)
 			}
 			client.ServerChan <- response
 			//#endregion Send Pixel
@@ -266,7 +266,7 @@ func listen(client *models.Client) {
 				Message:     "Not a valid message!",
 			})
 			if err != nil {
-				log.Println(err)
+				log.Println("ERR11: ", err)
 			}
 			client.ServerChan <- response
 		}
@@ -285,24 +285,24 @@ func startPingPongChecker() {
 
 // checkClients checks if the clients are still connected
 func checkClients() {
+	mutex.Lock()
 	for client := range clients {
 		if time.Since(client.LastPong) > models.DISCONNECT_AFTER_SECS*time.Second {
 			log.Println("Client is not responding, closing connection: ", client.UserId)
-			mutex.Lock()
 			client.Conn.Close()
 			delete(clients, client)
-			mutex.Unlock()
-		} else {
-			client.Conn.WriteMessage(websocket.PingMessage, nil)
 		}
 	}
+	mutex.Unlock()
 }
 
 func broadcastRedisMessages(redisSubChan <-chan *redis.Message, clients map[*models.Client]bool) {
 	for msg := range redisSubChan {
+		mutex.Lock()
 		for client := range clients {
 			client.RedisChan <- []byte(msg.Payload)
 		}
+		mutex.Unlock()
 	}
 }
 
