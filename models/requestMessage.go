@@ -12,7 +12,6 @@ const (
 	SET_CANVAS = 1
 	VIEW_PIXEL = 2
 	DISCONNET  = 3
-	TEST       = 4
 )
 
 type UserMessage struct {

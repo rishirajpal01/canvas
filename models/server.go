@@ -52,7 +52,7 @@ func (c *Client) WriteEvents() {
 			}
 			err := c.Conn.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
-				log.Println("error writing to websocket:", err)
+				log.Println("server chan: error writing to websocket:", err)
 			}
 		case message, ok := <-c.RedisChan:
 			if !ok {
@@ -62,7 +62,7 @@ func (c *Client) WriteEvents() {
 
 			err := c.Conn.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
-				log.Println("error writing to websocket:", err)
+				log.Println("server redis: error writing to websocket:", err)
 			}
 		}
 	}

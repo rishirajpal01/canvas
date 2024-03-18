@@ -114,7 +114,7 @@ func listen(client *models.Client) {
 				Message:     "Pong!",
 			})
 			if err != nil {
-				log.Println("ERR0: ", err)
+				log.Println("ERR1: ", err)
 			}
 			client.ServerChan <- response
 		}
@@ -126,16 +126,30 @@ func listen(client *models.Client) {
 			return
 		}
 		if err != nil {
-			log.Println("ERR1: ", err)
-			client.ServerChan <- []byte("ERR128: Internal server error!")
+			log.Println("ERR3: ", err)
+			response, err := json.Marshal(models.ServerResponse{
+				MessageType: models.Error,
+				Message:     "ERR4: Internal server error!",
+			})
+			if err != nil {
+				log.Println("ERR5: ", err)
+			}
+			client.ServerChan <- response
 			return
 		}
 
 		var userMessage models.UserMessage
 		err = json.Unmarshal(messageContent, &userMessage)
 		if err != nil {
-			log.Println("ERR2: ", err)
-			client.ServerChan <- []byte("ERR136: Internal server error!")
+			log.Println("ERR6: ", err)
+			response, err := json.Marshal(models.ServerResponse{
+				MessageType: models.Error,
+				Message:     "ERR7: Internal server error!",
+			})
+			if err != nil {
+				log.Println("ERR8: ", err)
+			}
+			client.ServerChan <- response
 			return
 		}
 		//#endregion read a message
@@ -149,7 +163,7 @@ func listen(client *models.Client) {
 				Message:     "Not a valid message!",
 			})
 			if err != nil {
-				log.Println("ERR3: ", err)
+				log.Println("ERR9: ", err)
 			}
 			client.ServerChan <- response
 			continue
@@ -161,7 +175,14 @@ func listen(client *models.Client) {
 			//#region verify placeTileMessage
 			isValid := functions.VerifyPlaceTileMessage(userMessage.PixelId, userMessage.Color)
 			if !isValid {
-				client.ServerChan <- []byte("Not a valid place tile request!")
+				response, err := json.Marshal(models.ServerResponse{
+					MessageType: models.Error,
+					Message:     "Not a valid place tile request!",
+				})
+				if err != nil {
+					log.Println("ERR10: ", err)
+				}
+				client.ServerChan <- response
 			}
 			//#endregion verify placeTileMessage
 
@@ -173,7 +194,7 @@ func listen(client *models.Client) {
 					Message:     message,
 				})
 				if err != nil {
-					log.Println("ERR4: ", err)
+					log.Println("ERR11: ", err)
 				}
 				client.ServerChan <- response
 				continue
@@ -185,7 +206,7 @@ func listen(client *models.Client) {
 					Message:     message,
 				})
 				if err != nil {
-					log.Println("ERR5: ", err)
+					log.Println("ERR12: ", err)
 				}
 				client.ServerChan <- response
 				continue
@@ -195,13 +216,13 @@ func listen(client *models.Client) {
 			//#region Set pixel
 			success, err := functions.SetPixelAndPublish(userMessage.PixelId, userMessage.Color, client.UserId, connections.RedisClient, connections.MongoClient)
 			if !success {
-				log.Println("ERR6: ", err)
+				log.Println("ERR13: ", err)
 				response, err := json.Marshal(models.ServerResponse{
 					MessageType: models.Error,
 					Message:     "Error setting pixel!",
 				})
 				if err != nil {
-					client.ServerChan <- []byte("Error setting pixel!")
+					log.Println("ERR14: ", err)
 				}
 				client.ServerChan <- response
 			}
@@ -213,7 +234,7 @@ func listen(client *models.Client) {
 				Message:     "Pixel set!",
 			})
 			if err != nil {
-				log.Println("ERR7: ", err)
+				log.Println("ERR15: ", err)
 			}
 			client.ServerChan <- response
 			//#endregion Send Response
@@ -223,8 +244,15 @@ func listen(client *models.Client) {
 			//#region Get Canvas
 			val, err := functions.GetCanvas(connections.RedisClient)
 			if err != nil {
-				log.Println("ERR8: ", err)
-				client.ServerChan <- []byte("Error getting canvas!")
+				log.Println("ERR16: ", err)
+				response, err := json.Marshal(models.ServerResponse{
+					MessageType: models.Error,
+					Message:     "Error getting canvas!",
+				})
+				if err != nil {
+					log.Println("ERR17: ", err)
+				}
+				client.ServerChan <- response
 			}
 			//#endregion Get Canvas
 
@@ -234,7 +262,7 @@ func listen(client *models.Client) {
 				Canvas:      val,
 			})
 			if err != nil {
-				log.Println("ERR9: ", err)
+				log.Println("ERR18: ", err)
 			}
 			client.ServerChan <- response
 			//#endregion Send Canvas
@@ -244,8 +272,15 @@ func listen(client *models.Client) {
 			//#region Get Pixel
 			pixelValue, err := functions.GetPixel(userMessage.PixelId, connections.MongoClient)
 			if err != nil {
-				log.Println("ERR10: ", err)
-				client.ServerChan <- []byte("Error viewing pixel")
+				log.Println("ERR19: ", err)
+				response, err := json.Marshal(models.ServerResponse{
+					MessageType: models.Error,
+					Message:     "Error viewing pixel",
+				})
+				if err != nil {
+					log.Println("ERR20: ", err)
+				}
+				client.ServerChan <- response
 			}
 			//#endregion Get Pixel
 
@@ -255,20 +290,18 @@ func listen(client *models.Client) {
 				SetPixelData: pixelValue,
 			})
 			if err != nil {
-				log.Println("ERR10: ", err)
+				log.Println("ERR21: ", err)
 			}
 			client.ServerChan <- response
 			//#endregion Send Pixel
 
-		} else if userMessage.MessageType == models.TEST {
-			client.ServerChan <- []byte("Test message")
 		} else {
 			response, err := json.Marshal(models.ServerResponse{
 				MessageType: models.Error,
 				Message:     "Not a valid message!",
 			})
 			if err != nil {
-				log.Println("ERR11: ", err)
+				log.Println("ERR22: ", err)
 			}
 			client.ServerChan <- response
 		}
