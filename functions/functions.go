@@ -145,16 +145,6 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	}
 	userCooldown := time.Now().Add(models.USER_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
 	pixelCooldown := time.Now().Add(models.PIXEL_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
-	_, err = redisClient.Do(context.TODO(), "SET", userId, userCooldown, "EX", models.USER_COOLDOWN_PERIOD).Result()
-	if err != nil {
-		return false, err
-	}
-	_, err = redisClient.Do(context.TODO(), "SET", fmt.Sprintf("PIXEL:%d", pixelId), pixelCooldown, "EX", models.PIXEL_COOLDOWN_PERIOD).Result()
-	if err != nil {
-		return false, err
-	}
-
-	//#region Publish on pub sub
 	messString, err := json.Marshal(models.ServerPixelUpdate{
 		MessageType: models.Update,
 		UserId:      userId,
@@ -164,11 +154,14 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	if err != nil {
 		return false, err
 	}
-	err = redisClient.Publish(context.TODO(), "pixelUpdates", messString).Err()
+	pipe := redisClient.Pipeline()
+	pipe.Do(context.TODO(), "SET", userId, userCooldown, "EX", models.USER_COOLDOWN_PERIOD).Result()
+	pipe.Do(context.TODO(), "SET", fmt.Sprintf("PIXEL:%d", pixelId), pixelCooldown, "EX", models.PIXEL_COOLDOWN_PERIOD).Result()
+	pipe.Publish(context.TODO(), "pixelUpdates", messString)
+	_, err = pipe.Exec(context.TODO())
 	if err != nil {
 		return false, err
 	}
-	//#endregion Publish on pub sub
 
 	//#region save to mongo
 	userObjectId, err := primitive.ObjectIDFromHex(userId)
