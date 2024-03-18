@@ -21,8 +21,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var clients = make(map[*models.Client]bool)
-var mutex = &sync.Mutex{}
+var clients = &sync.Map{}
 
 func main() {
 
@@ -88,11 +87,8 @@ func main() {
 		go client.WriteEvents()
 		//#endregion Upgrade the HTTP connection to a websocket
 
-		mutex.Lock()
-		clients[client] = true
-		mutex.Unlock()
+		clients.Store(client, true)
 
-		// listen(client)
 		jobs <- client
 	})
 	http.ListenAndServe(":8080", nil)
@@ -103,9 +99,7 @@ func listen(client *models.Client) {
 	//log the disconnect message if recieved by socket connection
 	defer func() {
 		log.Printf("User %v is disconnected!\n", client.UserId)
-		mutex.Lock()
-		delete(clients, client)
-		mutex.Unlock()
+		clients.Delete(client)
 	}()
 
 	for {
@@ -117,10 +111,8 @@ func listen(client *models.Client) {
 		if messageType == websocket.CloseMessage || messageType == -1 {
 			close(client.ServerChan)
 			close(client.RedisChan)
-			mutex.Lock()
-			delete(clients, client)
-			mutex.Unlock()
 			client.Conn.Close()
+			clients.Delete(client)
 			return
 		}
 		if err != nil {
@@ -285,24 +277,25 @@ func startPingPongChecker() {
 
 // checkClients checks if the clients are still connected
 func checkClients() {
-	mutex.Lock()
-	for client := range clients {
+	clients.Range(func(key, value interface{}) bool {
+		client := key.(*models.Client)
 		if time.Since(client.LastPong) > models.DISCONNECT_AFTER_SECS*time.Second {
 			log.Println("Client is not responding, closing connection: ", client.UserId)
 			client.Conn.Close()
-			delete(clients, client)
+			clients.Delete(client)
 		}
-	}
-	mutex.Unlock()
+		return true
+	})
 }
 
-func broadcastRedisMessages(redisSubChan <-chan *redis.Message, clients map[*models.Client]bool) {
+func broadcastRedisMessages(redisSubChan <-chan *redis.Message, clients *sync.Map) {
 	for msg := range redisSubChan {
-		mutex.Lock()
-		for client := range clients {
+		clients.Range(func(key, value interface{}) bool {
+			client := key.(*models.Client)
 			client.RedisChan <- []byte(msg.Payload)
-		}
-		mutex.Unlock()
+			return true
+		})
+
 	}
 }
 
