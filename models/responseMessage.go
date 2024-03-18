@@ -21,8 +21,8 @@ type ServerResponse struct {
 }
 
 type GetCanvas struct {
-	MessageType int     `json:"messageType"`
-	Canvas      []int64 `json:"canvas"`
+	MessageType int    `json:"messageType"`
+	Canvas      []int8 `json:"canvas"`
 }
 
 type GetPixel struct {

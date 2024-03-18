@@ -67,7 +67,7 @@ func MakeDefaultCanvas(redisClient *redis.Client) error {
 	for i := 0; i < 200; i++ {
 		for j := 0; j < 200; j++ {
 			pixelID := (j * 200) + i
-			pipe.Do(context.TODO(), "BITFIELD", "canvas", "SET", "u8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0))
+			pipe.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0))
 		}
 	}
 	_, err := pipe.Exec(context.TODO())
@@ -78,7 +78,7 @@ func MakeDefaultCanvas(redisClient *redis.Client) error {
 }
 
 func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
-	_, err := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "u8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
+	_, err := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
 	if err != nil {
 		return err
 	}
@@ -88,14 +88,14 @@ func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
 //#endregion Set Default Canvas
 
 // #region Canvas
-func GetCanvas(redisClient *redis.Client) ([]int64, error) {
-	responseArr := make([]int64, 40000)
+func GetCanvas(redisClient *redis.Client) ([]int8, error) {
+	responseArr := make([]int8, 40000)
 	val, err := redisClient.Get(context.TODO(), "canvas").Result()
 	if err != nil {
 		return responseArr, err
 	}
 	for i, char := range val {
-		responseArr[i] = int64(char)
+		responseArr[i] = int8(char)
 	}
 	return responseArr, nil
 
