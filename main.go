@@ -108,6 +108,16 @@ func listen(client *models.Client) {
 
 		//#region read a message
 		messageType, messageContent, err := client.Conn.ReadMessage()
+		if messageType == websocket.PingMessage {
+			response, err := json.Marshal(models.ServerResponse{
+				MessageType: models.Error,
+				Message:     "Pong!",
+			})
+			if err != nil {
+				log.Println("ERR0: ", err)
+			}
+			client.ServerChan <- response
+		}
 		if messageType == websocket.CloseMessage || messageType == -1 {
 			close(client.ServerChan)
 			close(client.RedisChan)
