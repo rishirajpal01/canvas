@@ -73,3 +73,10 @@ func (c *Client) CloseConnection() {
 	close(c.ServerChan)
 	c.Conn.Close()
 }
+
+type PixelData struct {
+	UserId    string `json:"userId,omitempty" bson:"userId"`
+	PixelId   int    `json:"pixelId,omitempty" bson:"pixelId"`
+	Color     int    `json:"color,omitempty" bson:"color"`
+	TimeStamp int64  `json:"timeStamp,omitempty" bson:"timeStamp"`
+}

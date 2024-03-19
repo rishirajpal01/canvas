@@ -13,10 +13,3 @@ type UserMessage struct {
 	PixelId     int `json:"pixelId"`
 	Color       int `json:"color"`
 }
-
-type PixelData struct {
-	UserId    string `json:"userId,omitempty" bson:"userId"`
-	PixelId   int    `json:"pixelId,omitempty" bson:"pixelId"`
-	Color     int    `json:"color,omitempty" bson:"color"`
-	TimeStamp int64  `json:"timeStamp,omitempty" bson:"timeStamp"`
-}

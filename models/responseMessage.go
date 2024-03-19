@@ -1,11 +1,5 @@
 package models
 
-type PixelUpdate struct {
-	PixelId  int `json:"pixelId"`
-	Color    int `json:"color"`
-	Cooldown int `json:"cooldown"`
-}
-
 // ServerResponse Codes
 const (
 	Success       = 1
