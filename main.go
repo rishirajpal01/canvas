@@ -126,9 +126,7 @@ func listen(client *models.Client) {
 			client.ServerChan <- response
 		}
 		if messageType == websocket.CloseMessage || messageType == -1 {
-			close(client.ServerChan)
-			close(client.RedisChan)
-			client.Conn.Close()
+			client.CloseConnection()
 			clients.Delete(client)
 			return
 		}
@@ -343,7 +341,7 @@ func checkClients() {
 		client := key.(*models.Client)
 		if time.Since(client.LastPong) > models.DISCONNECT_AFTER_SECS*time.Second {
 			log.Println("Client is not responding, closing connection: ", client.UserId)
-			client.Conn.Close()
+			client.CloseConnection()
 			clients.Delete(client)
 		}
 		return true
