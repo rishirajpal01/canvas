@@ -185,11 +185,11 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	return true, nil
 }
 
-func GetPixel(pixelId int, mongoClient *mongo.Client) (models.PixelData, error) {
+func GetPixel(pixelId int, mongoClient *mongo.Client) models.PixelData {
 	filter := bson.M{"pixelId": pixelId}
 	var pixelData models.PixelData
 	mongoClient.Database("canvas").Collection("pixelUpdates").FindOne(context.TODO(), filter).Decode(&pixelData)
-	return pixelData, nil
+	return pixelData
 }
 
 //#endregion Canvas

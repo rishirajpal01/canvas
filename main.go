@@ -122,8 +122,10 @@ func listen(client *models.Client) {
 			})
 			if err != nil {
 				log.Println("ERR1: ", err)
+				continue
 			}
 			client.ServerChan <- response
+			continue
 		}
 		if messageType == websocket.CloseMessage || messageType == -1 {
 			client.CloseConnection()
@@ -138,8 +140,13 @@ func listen(client *models.Client) {
 			})
 			if err != nil {
 				log.Println("ERR5: ", err)
+				client.CloseConnection()
+				clients.Delete(client)
+				return
 			}
 			client.ServerChan <- response
+			client.CloseConnection()
+			clients.Delete(client)
 			return
 		}
 
@@ -153,8 +160,12 @@ func listen(client *models.Client) {
 			})
 			if err != nil {
 				log.Println("ERR8: ", err)
+				client.CloseConnection()
+				clients.Delete(client)
+				return
 			}
 			client.ServerChan <- response
+			client.CloseConnection()
 			return
 		}
 		//#endregion read a message
@@ -169,9 +180,14 @@ func listen(client *models.Client) {
 			})
 			if err != nil {
 				log.Println("ERR9: ", err)
+				client.CloseConnection()
+				clients.Delete(client)
+				return
 			}
 			client.ServerChan <- response
-			continue
+			client.CloseConnection()
+			clients.Delete(client)
+			return
 		}
 		//#endregion Verify User message
 
@@ -188,6 +204,7 @@ func listen(client *models.Client) {
 					log.Println("ERR10: ", err)
 				}
 				client.ServerChan <- response
+				continue
 			}
 			//#endregion verify placeTileMessage
 
@@ -230,6 +247,7 @@ func listen(client *models.Client) {
 					log.Println("ERR14: ", err)
 				}
 				client.ServerChan <- response
+				continue
 			}
 			//#endregion Set pixel
 
@@ -258,6 +276,7 @@ func listen(client *models.Client) {
 					log.Println("ERR17: ", err)
 				}
 				client.ServerChan <- response
+				continue
 			}
 			//#endregion Get Canvas
 
@@ -275,19 +294,7 @@ func listen(client *models.Client) {
 		} else if userMessage.MessageType == models.VIEW_PIXEL {
 
 			//#region Get Pixel
-			pixelValue, err := functions.GetPixel(userMessage.PixelId, connections.MongoClient)
-			if err != nil {
-				log.Println("ERR19: ", err)
-				response, err := json.Marshal(models.ServerResponse{
-					MessageType: models.Error,
-					Message:     "Error viewing pixel",
-				})
-				if err != nil {
-					log.Println("ERR20: ", err)
-				}
-				client.ServerChan <- response
-				continue
-			}
+			pixelValue := functions.GetPixel(userMessage.PixelId, connections.MongoClient)
 			//#endregion Get Pixel
 
 			//#region Send Pixel
