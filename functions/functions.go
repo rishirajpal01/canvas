@@ -10,7 +10,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -145,11 +144,13 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	}
 	userCooldown := time.Now().Add(models.USER_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
 	pixelCooldown := time.Now().Add(models.PIXEL_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
-	messString, err := json.Marshal(models.ServerPixelUpdate{
+	messString, err := json.Marshal(models.ServerResponse{
 		MessageType: models.Update,
-		UserId:      userId,
-		PixelId:     pixelId,
-		Color:       color,
+		PixelData: models.PixelData{
+			UserId:  userId,
+			PixelId: pixelId,
+			Color:   color,
+		},
 	})
 	if err != nil {
 		return false, err
@@ -164,19 +165,15 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	}
 
 	//#region save to mongo
-	userObjectId, err := primitive.ObjectIDFromHex(userId)
-	if err != nil {
-		return false, err
-	}
-	setPixelData := models.SetPixelData{
-		UserId:    userObjectId,
+	pixelData := models.PixelData{
+		UserId:    userId,
 		PixelId:   pixelId,
 		Color:     color,
-		TimeStamp: time.Now(),
+		TimeStamp: time.Now().Unix(),
 	}
 
-	filter := bson.M{"pixelId": setPixelData.PixelId}
-	update := bson.M{"$set": setPixelData}
+	filter := bson.M{"pixelId": pixelData.PixelId}
+	update := bson.M{"$set": pixelData}
 
 	updateOptions := options.Update().SetUpsert(true)
 
@@ -188,14 +185,11 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	return true, nil
 }
 
-func GetPixel(pixelId int, mongoClient *mongo.Client) (models.SetPixelData, error) {
+func GetPixel(pixelId int, mongoClient *mongo.Client) (models.PixelData, error) {
 	filter := bson.M{"pixelId": pixelId}
-	var setPixelData models.SetPixelData
-	err := mongoClient.Database("canvas").Collection("pixelUpdates").FindOne(context.TODO(), filter).Decode(&setPixelData)
-	if err != nil {
-		return setPixelData, err
-	}
-	return setPixelData, nil
+	var pixelData models.PixelData
+	mongoClient.Database("canvas").Collection("pixelUpdates").FindOne(context.TODO(), filter).Decode(&pixelData)
+	return pixelData, nil
 }
 
 //#endregion Canvas

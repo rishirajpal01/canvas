@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var upgrader = websocket.Upgrader{
@@ -60,6 +61,12 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		//#region User Auth
 		userId := r.URL.Query().Get("userId")
+		_, err := primitive.ObjectIDFromHex(userId)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid User ID"))
+			return
+		}
 		xAuthToken := r.Header.Get("X-Auth-Token")
 		isValidUser := functions.VerifyUser(userId, xAuthToken)
 		if !isValidUser {
@@ -257,7 +264,7 @@ func listen(client *models.Client) {
 			//#endregion Get Canvas
 
 			//#region Send Canvas
-			response, err := json.Marshal(models.GetCanvas{
+			response, err := json.Marshal(models.ServerResponse{
 				MessageType: models.Success,
 				Canvas:      val,
 			})
@@ -281,16 +288,28 @@ func listen(client *models.Client) {
 					log.Println("ERR20: ", err)
 				}
 				client.ServerChan <- response
+				continue
 			}
 			//#endregion Get Pixel
 
 			//#region Send Pixel
-			response, err := json.Marshal(models.GetPixel{
-				MessageType:  models.Success,
-				SetPixelData: pixelValue,
-			})
-			if err != nil {
-				log.Println("ERR21: ", err)
+			var response []byte
+			if pixelValue.UserId == "" {
+				response, err = json.Marshal(models.ServerResponse{
+					MessageType: models.NotFound,
+					Message:     "Fill the pixel!",
+				})
+				if err != nil {
+					log.Println("ERR21: ", err)
+				}
+			} else {
+				response, err = json.Marshal(models.ServerResponse{
+					MessageType: models.Success,
+					PixelData:   pixelValue,
+				})
+				if err != nil {
+					log.Println("ERR22: ", err)
+				}
 			}
 			client.ServerChan <- response
 			//#endregion Send Pixel
@@ -301,7 +320,7 @@ func listen(client *models.Client) {
 				Message:     "Not a valid message!",
 			})
 			if err != nil {
-				log.Println("ERR22: ", err)
+				log.Println("ERR23: ", err)
 			}
 			client.ServerChan <- response
 		}

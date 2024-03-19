@@ -1,11 +1,5 @@
 package models
 
-import (
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
-)
-
 // Message Types
 const (
 	GET_CANVAS = 0
@@ -20,9 +14,9 @@ type UserMessage struct {
 	Color       int `json:"color"`
 }
 
-type SetPixelData struct {
-	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-	PixelId   int                `json:"pixelId" bson:"pixelId"`
-	Color     int                `json:"color" bson:"color"`
-	TimeStamp time.Time          `json:"timeStamp" bson:"timeStamp"`
+type PixelData struct {
+	UserId    string `json:"userId,omitempty" bson:"userId"`
+	PixelId   int    `json:"pixelId,omitempty" bson:"pixelId"`
+	Color     int    `json:"color,omitempty" bson:"color"`
+	TimeStamp int64  `json:"timeStamp,omitempty" bson:"timeStamp"`
 }
