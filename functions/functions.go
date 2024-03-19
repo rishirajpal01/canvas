@@ -48,36 +48,49 @@ func VerifyMessage(messageType int) bool {
 	return true
 }
 
-func VerifyPlaceTileMessage(pixelId int, color int) bool {
-	if pixelId < 0 || pixelId > 40000 {
-		return false
+func VerifyPlaceTileMessage(xCordinate, yCordinate, color int, canvasIdentifier string) bool {
+	validPixelId := false
+	validColor := false
+	if canvasIdentifier == models.REGULAR_CANVAS {
+		if xCordinate >= 0 || xCordinate < models.DEFAULT_X_SIZE || yCordinate >= 0 || yCordinate < models.DEFAULT_Y_SIZE {
+			validPixelId = true
+		}
+	} else if canvasIdentifier == models.INDIA_CANVAS {
+		pixelId := GetPixelId(xCordinate, yCordinate)
+		if models.INDIA_CANVAS_DATA[pixelId] == 1 {
+			validPixelId = true
+		}
 	}
-	if color < 0 || color > 15 {
-		return false
+	if color >= 1 || color <= 10 {
+		validColor = true
 	}
-	return true
+	return validPixelId && validColor
 }
 
 //#endregion Verify Message
 
 // #region Set Default Canvas
 func MakeDefaultCanvas(redisClient *redis.Client) error {
-	pipe := redisClient.Pipeline()
-	for i := 0; i < 200; i++ {
-		for j := 0; j < 200; j++ {
-			pixelID := (j * 200) + i
-			pipe.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0))
+	for _, canvas := range models.CANVAS_LIST {
+		err := MakeCanvas(redisClient, canvas)
+		if err != nil {
+			return err
 		}
 	}
-	_, err := pipe.Exec(context.TODO())
+	return nil
+}
+
+func MakeCanvas(redisClient *redis.Client, canvasIdentifier string) error {
+	pixelID := GetPixelId(models.DEFAULT_X_SIZE, models.DEFAULT_Y_SIZE)
+	_, err := redisClient.Do(context.TODO(), "BITFIELD", canvasIdentifier, "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0)).Result()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
-	_, err := redisClient.Do(context.TODO(), "BITFIELD", "canvas", "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
+func SetPixel(pixelID int, color int, canvasIndentifier string, redisClient *redis.Client) error {
+	_, err := redisClient.Do(context.TODO(), "BITFIELD", canvasIndentifier, "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
 	if err != nil {
 		return err
 	}
@@ -87,9 +100,9 @@ func SetPixel(pixelID int, color int, redisClient *redis.Client) error {
 //#endregion Set Default Canvas
 
 // #region Canvas
-func GetCanvas(redisClient *redis.Client) ([]int8, error) {
-	responseArr := make([]int8, 40000)
-	val, err := redisClient.Get(context.TODO(), "canvas").Result()
+func GetCanvas(canvasIdentifier string, redisClient *redis.Client) ([]int8, error) {
+	responseArr := make([]int8, models.DEFAULT_X_SIZE*models.DEFAULT_Y_SIZE)
+	val, err := redisClient.Get(context.TODO(), canvasIdentifier).Result()
 	if err != nil {
 		return responseArr, err
 	}
@@ -98,6 +111,10 @@ func GetCanvas(redisClient *redis.Client) ([]int8, error) {
 	}
 	return responseArr, nil
 
+}
+
+func GetPixelId(xCordinate, yCordinate int) int {
+	return (yCordinate * models.DEFAULT_X_SIZE) + xCordinate
 }
 
 func CheckUserCooldown(userId string, redisClient *redis.Client) (bool, string) {
@@ -136,9 +153,9 @@ func CheckPixelCooldown(pixelId int, redisClient *redis.Client) (bool, string) {
 
 }
 
-func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
+func SetPixelAndPublish(pixelId int, color int, userId string, canvasIdentifier string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
 
-	err := SetPixel(pixelId, color, redisClient)
+	err := SetPixel(pixelId, color, canvasIdentifier, redisClient)
 	if err != nil {
 		return false, err
 	}
@@ -177,7 +194,7 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 
 	updateOptions := options.Update().SetUpsert(true)
 
-	_, err = mongoClient.Database("canvas").Collection("pixelUpdates").UpdateOne(context.TODO(), filter, update, updateOptions)
+	_, err = mongoClient.Database("canvas").Collection(canvasIdentifier).UpdateOne(context.TODO(), filter, update, updateOptions)
 	if err != nil {
 		return false, err
 	}
@@ -185,11 +202,24 @@ func SetPixelAndPublish(pixelId int, color int, userId string, redisClient *redi
 	return true, nil
 }
 
-func GetPixel(pixelId int, mongoClient *mongo.Client) models.PixelData {
+func GetPixel(pixelId int, canvasIdentifier string, mongoClient *mongo.Client) models.PixelData {
 	filter := bson.M{"pixelId": pixelId}
 	var pixelData models.PixelData
-	mongoClient.Database("canvas").Collection("pixelUpdates").FindOne(context.TODO(), filter).Decode(&pixelData)
+	mongoClient.Database("canvas").Collection(canvasIdentifier).FindOne(context.TODO(), filter).Decode(&pixelData)
 	return pixelData
 }
 
 //#endregion Canvas
+
+// #region Helper Functions
+
+func CanvasExists(arr []string, element string) bool {
+	for _, a := range arr {
+		if a == element {
+			return true
+		}
+	}
+	return false
+}
+
+// #endregion Helper Functions

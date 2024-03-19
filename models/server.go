@@ -7,26 +7,17 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// #region Workers
 const (
-	MUMBAI     = 1  // Blue
-	KOLKATA    = 2  // Purple
-	DELHI      = 3  // Navy Blue
-	BANGALORE  = 4  // Red
-	HYDERABAD  = 5  // Orange
-	CHENNAI    = 6  // Yellow
-	JAIPUR     = 7  // Pink
-	MOHALI     = 8  // Red (Silver Accents)
-	AHEMEDABAD = 9  // Light Blue
-	PUNE       = 10 // Lavender
+	NUM_OF_WORKERS = 150
 )
 
+// #endregion Workers
+
+// #region User
 const (
 	USER_COOLDOWN_PERIOD  = 10
 	PIXEL_COOLDOWN_PERIOD = 20
-)
-
-const (
-	NUM_OF_WORKERS = 150
 )
 
 const (
@@ -34,12 +25,35 @@ const (
 	PING_INTERVAL         = 5
 )
 
+// #endregion User
+
+// #region Canvas
+const (
+	REGULAR_CANVAS = "REGULAR_CANVAS"
+	INDIA_CANVAS   = "INDIA_CANVAS"
+)
+
+const (
+	DEFAULT_X_SIZE    = 200
+	DEFAULT_Y_SIZE    = 200
+	CAN_PLACE_TILE    = 1
+	CANNOT_PLACE_TILE = 0
+)
+
+var CANVAS_LIST = []string{REGULAR_CANVAS, INDIA_CANVAS}
+
+var INDIA_CANVAS_DATA = []int{0, 0, 0, 1, 1, 1, 1, 0, 0, 0}
+
+// #endregion Canvas
+
+// #region Client
 type Client struct {
-	Conn       *websocket.Conn
-	ServerChan chan []byte
-	RedisChan  chan []byte
-	LastPong   time.Time
-	UserId     string
+	Conn             *websocket.Conn
+	ServerChan       chan []byte
+	RedisChan        chan []byte
+	LastPong         time.Time
+	UserId           string
+	CanvasIdentifier string
 }
 
 func (c *Client) WriteEvents() {
@@ -73,6 +87,8 @@ func (c *Client) CloseConnection() {
 	close(c.ServerChan)
 	c.Conn.Close()
 }
+
+// #endregion Client
 
 type PixelData struct {
 	UserId    string `json:"userId,omitempty" bson:"userId"`

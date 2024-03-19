@@ -6,10 +6,14 @@ const (
 	SET_CANVAS = 1
 	VIEW_PIXEL = 2
 	DISCONNET  = 3
+	TEST       = 4
 )
 
 type UserMessage struct {
-	MessageType int `json:"messageType"`
-	PixelId     int `json:"pixelId"`
-	Color       int `json:"color"`
+	MessageType      int    `json:"messageType"`
+	CanvasIdentifier string `json:"canvasIdentifier"`
+	XCordinate       int    `json:"xCordinate"`
+	YCordinate       int    `json:"yCordinate"`
+	PixelId          int    `json:"pixelId"`
+	Color            int    `json:"color"`
 }

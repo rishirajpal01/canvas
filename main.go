@@ -46,7 +46,10 @@ func main() {
 	defer pubsub.Close()
 	redisSubChan := pubsub.Channel()
 
-	functions.MakeDefaultCanvas(connections.RedisClient)
+	err = functions.MakeDefaultCanvas(connections.RedisClient)
+	if err != nil {
+		panic(fmt.Sprintf("Error making default canvas: %v", err))
+	}
 
 	// Creates a channel for the jobs.
 	jobs := make(chan *models.Client, models.NUM_OF_WORKERS)
@@ -61,6 +64,13 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		//#region User Auth
 		userId := r.URL.Query().Get("userId")
+		canvasIdentifier := r.URL.Query().Get("canvasIdentifier")
+		validCanvas := functions.CanvasExists(models.CANVAS_LIST, canvasIdentifier)
+		if !validCanvas {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid Canvas Identifier"))
+			return
+		}
 		_, err := primitive.ObjectIDFromHex(userId)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -85,11 +95,12 @@ func main() {
 			return
 		}
 		client := &models.Client{
-			Conn:       websocket,
-			ServerChan: make(chan []byte),
-			RedisChan:  make(chan []byte),
-			LastPong:   time.Now(),
-			UserId:     userId,
+			Conn:             websocket,
+			ServerChan:       make(chan []byte),
+			RedisChan:        make(chan []byte),
+			LastPong:         time.Now(),
+			UserId:           userId,
+			CanvasIdentifier: canvasIdentifier,
 		}
 		go client.WriteEvents()
 		//#endregion Upgrade the HTTP connection to a websocket
@@ -194,7 +205,7 @@ func listen(client *models.Client) {
 		if userMessage.MessageType == models.SET_CANVAS {
 
 			//#region verify placeTileMessage
-			isValid := functions.VerifyPlaceTileMessage(userMessage.PixelId, userMessage.Color)
+			isValid := functions.VerifyPlaceTileMessage(userMessage.XCordinate, userMessage.YCordinate, userMessage.Color, client.CanvasIdentifier)
 			if !isValid {
 				response, err := json.Marshal(models.ServerResponse{
 					MessageType: models.Error,
@@ -236,7 +247,8 @@ func listen(client *models.Client) {
 			//#endregion canSet pixel
 
 			//#region Set pixel
-			success, err := functions.SetPixelAndPublish(userMessage.PixelId, userMessage.Color, client.UserId, connections.RedisClient, connections.MongoClient)
+			pixelId := functions.GetPixelId(userMessage.XCordinate, userMessage.YCordinate)
+			success, err := functions.SetPixelAndPublish(pixelId, userMessage.Color, client.UserId, client.CanvasIdentifier, connections.RedisClient, connections.MongoClient)
 			if !success {
 				log.Println("ERR13: ", err)
 				response, err := json.Marshal(models.ServerResponse{
@@ -265,7 +277,7 @@ func listen(client *models.Client) {
 		} else if userMessage.MessageType == models.GET_CANVAS {
 
 			//#region Get Canvas
-			val, err := functions.GetCanvas(connections.RedisClient)
+			val, err := functions.GetCanvas(client.CanvasIdentifier, connections.RedisClient)
 			if err != nil {
 				log.Println("ERR16: ", err)
 				response, err := json.Marshal(models.ServerResponse{
@@ -294,7 +306,7 @@ func listen(client *models.Client) {
 		} else if userMessage.MessageType == models.VIEW_PIXEL {
 
 			//#region Get Pixel
-			pixelValue := functions.GetPixel(userMessage.PixelId, connections.MongoClient)
+			pixelValue := functions.GetPixel(userMessage.PixelId, client.CanvasIdentifier, connections.MongoClient)
 			//#endregion Get Pixel
 
 			//#region Send Pixel
