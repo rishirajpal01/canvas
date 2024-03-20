@@ -12,8 +12,6 @@ const (
 type UserMessage struct {
 	MessageType      int    `json:"messageType"`
 	CanvasIdentifier string `json:"canvasIdentifier"`
-	XCordinate       int    `json:"xCordinate"`
-	YCordinate       int    `json:"yCordinate"`
 	PixelId          int    `json:"pixelId"`
 	Color            int    `json:"color"`
 }

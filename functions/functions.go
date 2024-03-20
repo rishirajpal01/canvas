@@ -48,18 +48,11 @@ func VerifyMessage(messageType int) bool {
 	return true
 }
 
-func VerifyPlaceTileMessage(xCordinate, yCordinate, color int, canvasIdentifier string) bool {
+func VerifyPlaceTileMessage(pixelId, color int, canvasIdentifier string) bool {
 	validPixelId := false
 	validColor := false
-	if canvasIdentifier == models.REGULAR_CANVAS {
-		if xCordinate >= 0 || xCordinate < models.DEFAULT_X_SIZE || yCordinate >= 0 || yCordinate < models.DEFAULT_Y_SIZE {
-			validPixelId = true
-		}
-	} else if canvasIdentifier == models.INDIA_CANVAS {
-		pixelId := GetPixelId(xCordinate, yCordinate)
-		if models.INDIA_CANVAS_DATA[pixelId] == 1 {
-			validPixelId = true
-		}
+	if pixelId >= 0 || pixelId <= ((models.DEFAULT_X_SIZE*models.DEFAULT_Y_SIZE)-1) {
+		validPixelId = true
 	}
 	if color >= 1 || color <= 10 {
 		validColor = true
@@ -81,7 +74,7 @@ func MakeDefaultCanvas(redisClient *redis.Client) error {
 }
 
 func MakeCanvas(redisClient *redis.Client, canvasIdentifier string) error {
-	pixelID := GetPixelId(models.DEFAULT_X_SIZE-1, models.DEFAULT_Y_SIZE-1)
+	pixelID := (models.DEFAULT_X_SIZE * models.DEFAULT_Y_SIZE) - 1
 	_, err := redisClient.Do(context.TODO(), "BITFIELD", canvasIdentifier, "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0)).Result()
 	if err != nil {
 		return err
@@ -111,10 +104,6 @@ func GetCanvas(canvasIdentifier string, redisClient *redis.Client) ([]int8, erro
 	}
 	return responseArr, nil
 
-}
-
-func GetPixelId(xCordinate, yCordinate int) int {
-	return (yCordinate * models.DEFAULT_X_SIZE) + xCordinate
 }
 
 func CheckUserCooldown(userId string, redisClient *redis.Client) (bool, string) {

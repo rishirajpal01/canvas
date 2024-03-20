@@ -206,7 +206,7 @@ func listen(client *models.Client) {
 		if userMessage.MessageType == models.SET_CANVAS {
 
 			//#region verify placeTileMessage
-			isValid := functions.VerifyPlaceTileMessage(userMessage.XCordinate, userMessage.YCordinate, userMessage.Color, client.CanvasIdentifier)
+			isValid := functions.VerifyPlaceTileMessage(userMessage.PixelId, userMessage.Color, client.CanvasIdentifier)
 			if !isValid {
 				response, err := json.Marshal(models.ServerResponse{
 					MessageType: models.Error,
@@ -248,8 +248,7 @@ func listen(client *models.Client) {
 			//#endregion canSet pixel
 
 			//#region Set pixel
-			pixelId := functions.GetPixelId(userMessage.XCordinate, userMessage.YCordinate)
-			success, err := functions.SetPixelAndPublish(pixelId, userMessage.Color, client.UserId, client.CanvasIdentifier, connections.RedisClient, connections.MongoClient)
+			success, err := functions.SetPixelAndPublish(userMessage.PixelId, userMessage.Color, client.UserId, client.CanvasIdentifier, connections.RedisClient, connections.MongoClient)
 			if !success {
 				log.Println("ERR13: ", err)
 				response, err := json.Marshal(models.ServerResponse{
