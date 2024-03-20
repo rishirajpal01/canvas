@@ -82,12 +82,6 @@ func (c *Client) WriteEvents() {
 	}
 }
 
-func (c *Client) CloseConnection() {
-	close(c.RedisChan)
-	close(c.ServerChan)
-	c.Conn.Close()
-}
-
 // #endregion Client
 
 type PixelData struct {

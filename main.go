@@ -117,6 +117,7 @@ func listen(client *models.Client) {
 	//log the disconnect message if recieved by socket connection
 	defer func() {
 		log.Printf("User %v is disconnected!\n", client.UserId)
+		client.Conn.Close()
 		clients.Delete(client)
 	}()
 
@@ -139,7 +140,7 @@ func listen(client *models.Client) {
 			continue
 		}
 		if messageType == websocket.CloseMessage || messageType == -1 {
-			client.CloseConnection()
+			client.Conn.Close()
 			clients.Delete(client)
 			return
 		}
@@ -151,12 +152,12 @@ func listen(client *models.Client) {
 			})
 			if err != nil {
 				log.Println("ERR5: ", err)
-				client.CloseConnection()
+				client.Conn.Close()
 				clients.Delete(client)
 				return
 			}
 			client.ServerChan <- response
-			client.CloseConnection()
+			client.Conn.Close()
 			clients.Delete(client)
 			return
 		}
@@ -171,12 +172,12 @@ func listen(client *models.Client) {
 			})
 			if err != nil {
 				log.Println("ERR8: ", err)
-				client.CloseConnection()
+				client.Conn.Close()
 				clients.Delete(client)
 				return
 			}
 			client.ServerChan <- response
-			client.CloseConnection()
+			client.Conn.Close()
 			return
 		}
 		//#endregion read a message
@@ -191,12 +192,12 @@ func listen(client *models.Client) {
 			})
 			if err != nil {
 				log.Println("ERR9: ", err)
-				client.CloseConnection()
+				client.Conn.Close()
 				clients.Delete(client)
 				return
 			}
 			client.ServerChan <- response
-			client.CloseConnection()
+			client.Conn.Close()
 			clients.Delete(client)
 			return
 		}
@@ -360,7 +361,7 @@ func checkClients() {
 		client := key.(*models.Client)
 		if time.Since(client.LastPong) > models.DISCONNECT_AFTER_SECS*time.Second {
 			log.Println("Client is not responding, closing connection: ", client.UserId)
-			client.CloseConnection()
+			client.Conn.Close()
 			clients.Delete(client)
 		}
 		return true
