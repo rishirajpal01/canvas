@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<input type="file" id="imageUpload" accept="image/*" />
+<canvas id="canvas"></canvas>
+
+<script>
+
+  var height = 200;
+  var width = 200;
+  document.getElementById('imageUpload').addEventListener('change', function(e) {
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+  var img = new Image();
+  img.onload = function() {
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(img, 0, 0, width, height);
+    var imageData = ctx.getImageData(0, 0, width, height).data;
+    var pixelArray = [];
+    for (var i = 0; i < imageData.length; i += 4) {
+      var alpha = imageData[i + 3];
+      if (alpha === 0) {
+        pixelArray.push(-1); // Empty region
+      } else {
+        pixelArray.push(0); // Colored region
+      }
+    }
+
+    var pixelArrayElement = document.createElement('pre');
+    var formattedPixelArray = '';
+    for (var i = 0; i < pixelArray.length; i++) {
+      formattedPixelArray += pixelArray[i] + ', ';
+      if ((i + 1) % height === 0) {
+        formattedPixelArray += '\n';
+      }
+    }
+    pixelArrayElement.textContent = formattedPixelArray;
+    document.body.appendChild(pixelArrayElement);
+
+    var copyButton = document.createElement('button');
+    copyButton.textContent = 'Copy Pixel Array';
+    copyButton.addEventListener('click', function() {
+      navigator.clipboard.writeText(formattedPixelArray);
+    });
+    document.body.appendChild(copyButton);
+  }
+  img.src = URL.createObjectURL(e.target.files[0]);
+}, false);
+</script>
+
+</body>
+</html>
