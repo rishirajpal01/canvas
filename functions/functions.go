@@ -81,7 +81,7 @@ func MakeDefaultCanvas(redisClient *redis.Client) error {
 }
 
 func MakeCanvas(redisClient *redis.Client, canvasIdentifier string) error {
-	pixelID := GetPixelId(models.DEFAULT_X_SIZE, models.DEFAULT_Y_SIZE)
+	pixelID := GetPixelId(models.DEFAULT_X_SIZE-1, models.DEFAULT_Y_SIZE-1)
 	_, err := redisClient.Do(context.TODO(), "BITFIELD", canvasIdentifier, "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(0)).Result()
 	if err != nil {
 		return err
