@@ -85,8 +85,8 @@ func (c *Client) WriteEvents() {
 // #endregion Client
 
 type PixelData struct {
-	UserId    string `json:"userId,omitempty" bson:"userId"`
-	PixelId   int    `json:"pixelId,omitempty" bson:"pixelId"`
-	Color     int    `json:"color,omitempty" bson:"color"`
+	UserId    string `json:"userId," bson:"userId"`
+	PixelId   int    `json:"pixelId" bson:"pixelId"`
+	Color     int    `json:"color" bson:"color"`
 	TimeStamp int64  `json:"timeStamp,omitempty" bson:"timeStamp"`
 }

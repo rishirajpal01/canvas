@@ -314,8 +314,9 @@ func listen(client *models.Client) {
 			var response []byte
 			if pixelValue.UserId == "" {
 				response, err = json.Marshal(models.ServerResponse{
-					MessageType: models.NotFound,
+					MessageType: models.Success,
 					Message:     "Fill the pixel!",
+					PixelData:   pixelValue,
 				})
 				if err != nil {
 					log.Println("ERR21: ", err)

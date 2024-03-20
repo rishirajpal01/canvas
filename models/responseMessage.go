@@ -6,8 +6,7 @@ const (
 	UserCooldown  = 2
 	PixelCooldown = 3
 	Update        = 4
-	NotFound      = 5
-	Error         = 6
+	Error         = 5
 )
 
 type ServerResponse struct {
