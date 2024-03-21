@@ -54,6 +54,13 @@ func VerifyPlaceTileMessage(pixelId, color int, canvasIdentifier string) bool {
 	if pixelId >= 0 || pixelId <= ((models.DEFAULT_X_SIZE*models.DEFAULT_Y_SIZE)-1) {
 		validPixelId = true
 	}
+	if canvasIdentifier == models.INDIA_CANVAS {
+		if models.INDIA_CANVAS_DATA[pixelId] == models.CAN_PLACE_TILE {
+			validPixelId = true
+		} else {
+			validPixelId = false
+		}
+	}
 	if color >= 1 || color <= 10 {
 		validColor = true
 	}
