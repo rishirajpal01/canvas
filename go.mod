@@ -4,9 +4,10 @@ go 1.22.0
 
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/gorilla/websocket v1.5.1
 	github.com/redis/go-redis/v9 v9.5.1
 	go.mongodb.org/mongo-driver v1.14.0
-	github.com/gorilla/websocket v1.5.1
+	google.golang.org/protobuf v1.33.0
 )
 
 require (

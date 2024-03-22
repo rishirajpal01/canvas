@@ -264,7 +264,7 @@ func (c *Client) WriteEvents() {
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			err := c.Conn.WriteMessage(websocket.TextMessage, message)
+			err := c.Conn.WriteMessage(websocket.BinaryMessage, message)
 			if err != nil {
 				log.Println("server chan: error writing to websocket:", err)
 			}
@@ -274,7 +274,7 @@ func (c *Client) WriteEvents() {
 				return
 			}
 
-			err := c.Conn.WriteMessage(websocket.TextMessage, message)
+			err := c.Conn.WriteMessage(websocket.BinaryMessage, message)
 			if err != nil {
 				log.Println("server redis: error writing to websocket:", err)
 			}
@@ -286,7 +286,7 @@ func (c *Client) WriteEvents() {
 
 type PixelData struct {
 	UserId    string `json:"userId,omitempty" bson:"userId"`
-	PixelId   int    `json:"pixelId,omitempty" bson:"pixelId"`
-	Color     int    `json:"color,omitempty" bson:"color"`
+	PixelId   int32  `json:"pixelId,omitempty" bson:"pixelId"`
+	Color     int32  `json:"color,omitempty" bson:"color"`
 	TimeStamp int64  `json:"timeStamp,omitempty" bson:"timeStamp"`
 }

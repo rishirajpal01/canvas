@@ -2,8 +2,8 @@ package functions
 
 import (
 	"canvas/models"
+	canvas "canvas/proto"
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"google.golang.org/protobuf/proto"
 )
 
 // #region Verify User
@@ -41,14 +42,14 @@ func DecodeJWT(tokenString string) (*jwt.Token, error) {
 //#endregion Verify User
 
 // #region Verify Message
-func VerifyMessage(messageType int) bool {
+func VerifyMessage(messageType int32) bool {
 	if messageType < 0 || messageType > 3 {
 		return false
 	}
 	return true
 }
 
-func VerifyPlaceTileMessage(pixelId, color int, canvasIdentifier string) bool {
+func VerifyPlaceTileMessage(pixelId, color int32, canvasIdentifier string) bool {
 	validPixelId := false
 	validColor := false
 	if pixelId >= 0 || pixelId <= ((models.DEFAULT_X_SIZE*models.DEFAULT_Y_SIZE)-1) {
@@ -89,7 +90,7 @@ func MakeCanvas(redisClient *redis.Client, canvasIdentifier string) error {
 	return nil
 }
 
-func SetPixel(pixelID int, color int, canvasIndentifier string, redisClient *redis.Client) error {
+func SetPixel(pixelID int32, color int32, canvasIndentifier string, redisClient *redis.Client) error {
 	_, err := redisClient.Do(context.TODO(), "BITFIELD", canvasIndentifier, "SET", "i8", "#"+fmt.Sprint(pixelID), fmt.Sprint(color)).Result()
 	if err != nil {
 		return err
@@ -100,14 +101,14 @@ func SetPixel(pixelID int, color int, canvasIndentifier string, redisClient *red
 //#endregion Set Default Canvas
 
 // #region Canvas
-func GetCanvas(canvasIdentifier string, redisClient *redis.Client) ([]int8, error) {
-	responseArr := make([]int8, models.DEFAULT_X_SIZE*models.DEFAULT_Y_SIZE)
+func GetCanvas(canvasIdentifier string, redisClient *redis.Client) ([]int32, error) {
+	responseArr := make([]int32, models.DEFAULT_X_SIZE*models.DEFAULT_Y_SIZE)
 	val, err := redisClient.Get(context.TODO(), canvasIdentifier).Result()
 	if err != nil {
 		return responseArr, err
 	}
 	for i, char := range val {
-		responseArr[i] = int8(char)
+		responseArr[i] = int32(char)
 	}
 	return responseArr, nil
 
@@ -131,7 +132,7 @@ func CheckUserCooldown(userId string, redisClient *redis.Client) (bool, string) 
 
 }
 
-func CheckPixelCooldown(pixelId int, redisClient *redis.Client) (bool, string) {
+func CheckPixelCooldown(pixelId int32, redisClient *redis.Client) (bool, string) {
 	pixelCooldown, pixelCooldownError := redisClient.Get(context.TODO(), fmt.Sprintf("PIXEL:%d", pixelId)).Result()
 	if pixelCooldownError == redis.Nil {
 		return false, ""
@@ -149,7 +150,7 @@ func CheckPixelCooldown(pixelId int, redisClient *redis.Client) (bool, string) {
 
 }
 
-func SetPixelAndPublish(pixelId int, color int, userId string, canvasIdentifier string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
+func SetPixelAndPublish(pixelId int32, color int32, userId string, canvasIdentifier string, redisClient *redis.Client, mongoClient *mongo.Client) (bool, error) {
 
 	err := SetPixel(pixelId, color, canvasIdentifier, redisClient)
 	if err != nil {
@@ -157,21 +158,20 @@ func SetPixelAndPublish(pixelId int, color int, userId string, canvasIdentifier 
 	}
 	userCooldown := time.Now().Add(models.USER_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
 	pixelCooldown := time.Now().Add(models.PIXEL_COOLDOWN_PERIOD * time.Second).Format(time.RFC3339)
-	messString, err := json.Marshal(models.ServerResponse{
+	message := &canvas.ResponseMessage{
 		MessageType: models.Update,
-		PixelData: models.PixelData{
-			UserId:  userId,
-			PixelId: pixelId,
-			Color:   color,
-		},
-	})
+		UserId:      userId,
+		PixelId:     pixelId,
+		Color:       color,
+	}
+	messageByte, err := proto.Marshal(message)
 	if err != nil {
 		return false, err
 	}
 	pipe := redisClient.Pipeline()
 	pipe.Do(context.TODO(), "SET", userId, userCooldown, "EX", models.USER_COOLDOWN_PERIOD).Result()
 	pipe.Do(context.TODO(), "SET", fmt.Sprintf("PIXEL:%d", pixelId), pixelCooldown, "EX", models.PIXEL_COOLDOWN_PERIOD).Result()
-	pipe.Publish(context.TODO(), "pixelUpdates", messString)
+	pipe.Publish(context.TODO(), "pixelUpdates", messageByte)
 	_, err = pipe.Exec(context.TODO())
 	if err != nil {
 		return false, err
@@ -198,9 +198,9 @@ func SetPixelAndPublish(pixelId int, color int, userId string, canvasIdentifier 
 	return true, nil
 }
 
-func GetPixel(pixelId int, canvasIdentifier string, mongoClient *mongo.Client) models.PixelData {
+func GetPixel(pixelId int32, canvasIdentifier string, mongoClient *mongo.Client) *canvas.ResponseMessage {
 	filter := bson.M{"pixelId": pixelId}
-	var pixelData models.PixelData
+	var pixelData *canvas.ResponseMessage
 	mongoClient.Database("canvas").Collection(canvasIdentifier).FindOne(context.TODO(), filter).Decode(&pixelData)
 	return pixelData
 }

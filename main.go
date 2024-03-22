@@ -4,6 +4,7 @@ import (
 	"canvas/connections"
 	"canvas/functions"
 	"canvas/models"
+	canvas "canvas/proto"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"google.golang.org/protobuf/proto"
 )
 
 var upgrader = websocket.Upgrader{
@@ -128,16 +130,16 @@ func listen(client *models.Client) {
 		//#region read a message
 		messageType, messageContent, err := client.Conn.ReadMessage()
 		if messageType == websocket.PingMessage {
-			response, err := json.Marshal(models.ServerResponse{
+			response := &canvas.ResponseMessage{
 				MessageType: models.Error,
 				Message:     "Pong!",
-			})
+			}
+			protoMessage, err := proto.Marshal(response)
 			if err != nil {
 				log.Println("ERR1: ", err)
 				continue
 			}
-			client.ServerChan <- response
-			continue
+			client.ServerChan <- protoMessage
 		}
 		if messageType == websocket.CloseMessage || messageType == -1 {
 			client.Conn.Close()
@@ -145,18 +147,19 @@ func listen(client *models.Client) {
 			return
 		}
 		if err != nil {
-			log.Println("ERR3: ", err)
-			response, err := json.Marshal(models.ServerResponse{
+			log.Println("ERR2: ", err)
+			response := &canvas.ResponseMessage{
 				MessageType: models.Error,
 				Message:     "ERR4: Internal server error!",
-			})
+			}
+			protoMessage, err := proto.Marshal(response)
 			if err != nil {
-				log.Println("ERR5: ", err)
+				log.Println("ERR3: ", err)
 				client.Conn.Close()
 				clients.Delete(client)
 				return
 			}
-			client.ServerChan <- response
+			client.ServerChan <- protoMessage
 			client.Conn.Close()
 			clients.Delete(client)
 			return
@@ -165,18 +168,19 @@ func listen(client *models.Client) {
 		var userMessage models.UserMessage
 		err = json.Unmarshal(messageContent, &userMessage)
 		if err != nil {
-			log.Println("ERR6: ", err)
-			response, err := json.Marshal(models.ServerResponse{
+			log.Println("ERR4: ", err)
+			response := &canvas.ResponseMessage{
 				MessageType: models.Error,
 				Message:     "ERR7: Internal server error!",
-			})
+			}
+			protoMessage, err := proto.Marshal(response)
 			if err != nil {
-				log.Println("ERR8: ", err)
+				log.Println("ERR5: ", err)
 				client.Conn.Close()
 				clients.Delete(client)
 				return
 			}
-			client.ServerChan <- response
+			client.ServerChan <- protoMessage
 			client.Conn.Close()
 			return
 		}
@@ -186,17 +190,16 @@ func listen(client *models.Client) {
 
 		isValidMessage := functions.VerifyMessage(userMessage.MessageType)
 		if !isValidMessage {
-			response, err := json.Marshal(models.ServerResponse{
+			response := &canvas.ResponseMessage{
 				MessageType: models.Error,
 				Message:     "Not a valid message!",
-			})
-			if err != nil {
-				log.Println("ERR9: ", err)
-				client.Conn.Close()
-				clients.Delete(client)
-				return
 			}
-			client.ServerChan <- response
+			protoMessage, err := proto.Marshal(response)
+			if err != nil {
+				log.Println("ERR6: ", err)
+				continue
+			}
+			client.ServerChan <- protoMessage
 			client.Conn.Close()
 			clients.Delete(client)
 			return
@@ -208,14 +211,16 @@ func listen(client *models.Client) {
 			//#region verify placeTileMessage
 			isValid := functions.VerifyPlaceTileMessage(userMessage.PixelId, userMessage.Color, client.CanvasIdentifier)
 			if !isValid {
-				response, err := json.Marshal(models.ServerResponse{
+				response := &canvas.ResponseMessage{
 					MessageType: models.Error,
 					Message:     "Not a valid place tile request!",
-				})
-				if err != nil {
-					log.Println("ERR10: ", err)
 				}
-				client.ServerChan <- response
+				protoMessage, err := proto.Marshal(response)
+				if err != nil {
+					log.Println("ERR7: ", err)
+					continue
+				}
+				client.ServerChan <- protoMessage
 				continue
 			}
 			//#endregion verify placeTileMessage
@@ -223,26 +228,30 @@ func listen(client *models.Client) {
 			//#region canSet pixel
 			userCoolDown, message := functions.CheckUserCooldown(client.UserId, connections.RedisClient)
 			if userCoolDown {
-				response, err := json.Marshal(models.ServerResponse{
+				response := &canvas.ResponseMessage{
 					MessageType: models.UserCooldown,
 					Message:     message,
-				})
-				if err != nil {
-					log.Println("ERR11: ", err)
 				}
-				client.ServerChan <- response
+				protoMessage, err := proto.Marshal(response)
+				if err != nil {
+					log.Println("ERR8: ", err)
+					continue
+				}
+				client.ServerChan <- protoMessage
 				continue
 			}
 			pixelCoolDown, message := functions.CheckPixelCooldown(userMessage.PixelId, connections.RedisClient)
 			if pixelCoolDown {
-				response, err := json.Marshal(models.ServerResponse{
+				response := &canvas.ResponseMessage{
 					MessageType: models.PixelCooldown,
 					Message:     message,
-				})
-				if err != nil {
-					log.Println("ERR12: ", err)
 				}
-				client.ServerChan <- response
+				protoMessage, err := proto.Marshal(response)
+				if err != nil {
+					log.Println("ERR9: ", err)
+					continue
+				}
+				client.ServerChan <- protoMessage
 				continue
 			}
 			//#endregion canSet pixel
@@ -250,28 +259,32 @@ func listen(client *models.Client) {
 			//#region Set pixel
 			success, err := functions.SetPixelAndPublish(userMessage.PixelId, userMessage.Color, client.UserId, client.CanvasIdentifier, connections.RedisClient, connections.MongoClient)
 			if !success {
-				log.Println("ERR13: ", err)
-				response, err := json.Marshal(models.ServerResponse{
+				log.Println("ERR10: ", err)
+				response := &canvas.ResponseMessage{
 					MessageType: models.Error,
 					Message:     "Error setting pixel!",
-				})
-				if err != nil {
-					log.Println("ERR14: ", err)
 				}
-				client.ServerChan <- response
+				protoMessage, err := proto.Marshal(response)
+				if err != nil {
+					log.Println("ERR11: ", err)
+					continue
+				}
+				client.ServerChan <- protoMessage
 				continue
 			}
 			//#endregion Set pixel
 
 			//#region Send Response
-			response, err := json.Marshal(models.ServerResponse{
+			response := &canvas.ResponseMessage{
 				MessageType: models.Success,
 				Message:     "Pixel set!",
-			})
-			if err != nil {
-				log.Println("ERR15: ", err)
 			}
-			client.ServerChan <- response
+			protoMessage, err := proto.Marshal(response)
+			if err != nil {
+				log.Println("ERR12: ", err)
+				continue
+			}
+			client.ServerChan <- protoMessage
 			//#endregion Send Response
 
 		} else if userMessage.MessageType == models.GET_CANVAS {
@@ -279,28 +292,32 @@ func listen(client *models.Client) {
 			//#region Get Canvas
 			val, err := functions.GetCanvas(client.CanvasIdentifier, connections.RedisClient)
 			if err != nil {
-				log.Println("ERR16: ", err)
-				response, err := json.Marshal(models.ServerResponse{
+				log.Println("ERR13: ", err)
+				response := &canvas.ResponseMessage{
 					MessageType: models.Error,
 					Message:     "Error getting canvas!",
-				})
-				if err != nil {
-					log.Println("ERR17: ", err)
 				}
-				client.ServerChan <- response
+				protoMessage, err := proto.Marshal(response)
+				if err != nil {
+					log.Println("ERR14: ", err)
+					continue
+				}
+				client.ServerChan <- protoMessage
 				continue
 			}
 			//#endregion Get Canvas
 
 			//#region Send Canvas
-			response, err := json.Marshal(models.ServerResponse{
+			response := &canvas.ResponseMessage{
 				MessageType: models.Success,
 				Canvas:      val,
-			})
-			if err != nil {
-				log.Println("ERR18: ", err)
 			}
-			client.ServerChan <- response
+			protoMessage, err := proto.Marshal(response)
+			if err != nil {
+				log.Println("ERR15: ", err)
+				continue
+			}
+			client.ServerChan <- protoMessage
 			//#endregion Send Canvas
 
 		} else if userMessage.MessageType == models.VIEW_PIXEL {
@@ -310,37 +327,46 @@ func listen(client *models.Client) {
 			//#endregion Get Pixel
 
 			//#region Send Pixel
-			var response []byte
+			var protoMessage []byte
 			if pixelValue.UserId == "" {
-				response, err = json.Marshal(models.ServerResponse{
+				response := &canvas.ResponseMessage{
 					MessageType: models.Success,
 					Message:     "Fill the pixel!",
-					PixelData:   pixelValue,
-				})
+					UserId:      pixelValue.UserId,
+					PixelId:     pixelValue.PixelId,
+					Color:       pixelValue.Color,
+				}
+				protoMessage, err = proto.Marshal(response)
 				if err != nil {
-					log.Println("ERR21: ", err)
+					log.Println("ERR16: ", err)
 				}
 			} else {
-				response, err = json.Marshal(models.ServerResponse{
+				response := &canvas.ResponseMessage{
 					MessageType: models.Success,
-					PixelData:   pixelValue,
-				})
+					UserId:      pixelValue.UserId,
+					PixelId:     pixelValue.PixelId,
+					Color:       pixelValue.Color,
+				}
+				protoMessage, err = proto.Marshal(response)
 				if err != nil {
-					log.Println("ERR22: ", err)
+					log.Println("ERR17: ", err)
 				}
 			}
-			client.ServerChan <- response
+
+			client.ServerChan <- protoMessage
 			//#endregion Send Pixel
 
 		} else {
-			response, err := json.Marshal(models.ServerResponse{
+			response := &canvas.ResponseMessage{
 				MessageType: models.Error,
 				Message:     "Not a valid message!",
-			})
-			if err != nil {
-				log.Println("ERR23: ", err)
 			}
-			client.ServerChan <- response
+			protoMessage, err := proto.Marshal(response)
+			if err != nil {
+				log.Println("ERR18: ", err)
+				continue
+			}
+			client.ServerChan <- protoMessage
 		}
 
 	}
