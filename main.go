@@ -175,6 +175,7 @@ func listen(client *models.Client) {
 			}
 			client.ServerChan <- protoMessage
 			client.Conn.Close()
+			clients.Delete(client)
 			return
 		}
 		//#endregion read a message
