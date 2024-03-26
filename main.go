@@ -53,13 +53,6 @@ func main() {
 		panic(fmt.Sprintf("Error making default canvas: %v", err))
 	}
 
-	// Creates a channel for the jobs.
-	jobs := make(chan *models.Client, models.NUM_OF_WORKERS)
-
-	for i := 0; i < models.NUM_OF_WORKERS; i++ {
-		go worker(jobs)
-	}
-
 	go broadcastRedisMessages(redisSubChan, clients)
 	go startPingPongChecker()
 
@@ -109,7 +102,7 @@ func main() {
 
 		clients.Store(client, true)
 
-		jobs <- client
+		go listen(client)
 	})
 	http.ListenAndServe(":8080", nil)
 }
@@ -402,11 +395,5 @@ func broadcastRedisMessages(redisSubChan <-chan *redis.Message, clients *sync.Ma
 			return true
 		})
 
-	}
-}
-
-func worker(jobs <-chan *models.Client) {
-	for client := range jobs {
-		listen(client)
 	}
 }
