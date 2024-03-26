@@ -46,6 +46,7 @@ type Client struct {
 	LastPong         time.Time
 	UserId           string
 	CanvasIdentifier string
+	PixelsAvailable  uint16
 }
 
 func (c *Client) WriteEvents() {

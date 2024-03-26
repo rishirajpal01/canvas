@@ -5,7 +5,11 @@ import (
 	"canvas/models"
 	canvas "canvas/proto"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -220,3 +224,35 @@ func CanvasExists(arr []string, element string) bool {
 }
 
 // #endregion Helper Functions
+
+// #region HW
+
+func GetPixelsAvailable(userId string) uint16 {
+
+	response, err := http.Get(fmt.Sprintf("https://example.com/getPixelsAvailable/%s", userId))
+	if err != nil {
+		log.Println("Error getting pixels available:", err)
+		return 0
+	}
+	body, err := io.ReadAll(response.Body)
+	defer response.Body.Close()
+	if err != nil {
+		log.Println("Error reading response body:", err)
+		return 0
+	}
+
+	var responseMap map[string]uint16
+	err = json.Unmarshal(body, &responseMap)
+	if err != nil {
+		log.Println("Error unmarshalling response body:", err)
+		return 0
+	}
+
+	if responseMap["pixelsAvailable"] > 0 {
+		return responseMap["pixelsAvailable"]
+	}
+
+	return 0
+}
+
+// #endregion HW
