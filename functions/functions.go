@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"canvas/catalogue"
 	"canvas/models"
 	canvas "canvas/proto"
 	"context"
@@ -55,8 +56,8 @@ func VerifyPlaceTileMessage(pixelId, color int32, canvasIdentifier string) bool 
 	if pixelId >= 0 || pixelId <= ((models.DEFAULT_X_SIZE*models.DEFAULT_Y_SIZE)-1) {
 		validPixelId = true
 	}
-	if canvasIdentifier == models.INDIA_CANVAS {
-		if models.INDIA_CANVAS_DATA[pixelId] == models.CAN_PLACE_TILE {
+	if canvasIdentifier == catalogue.INDIA_CANVAS {
+		if catalogue.INDIA_CANVAS_DATA[pixelId] == models.CAN_PLACE_TILE {
 			validPixelId = true
 		} else {
 			validPixelId = false
@@ -72,7 +73,7 @@ func VerifyPlaceTileMessage(pixelId, color int32, canvasIdentifier string) bool 
 
 // #region Set Default Canvas
 func MakeDefaultCanvas(redisClient *redis.Client) error {
-	for _, canvas := range models.CANVAS_LIST {
+	for _, canvas := range catalogue.CANVAS_LIST {
 		err := MakeCanvas(redisClient, canvas)
 		if err != nil {
 			return err

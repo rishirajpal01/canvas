@@ -1,6 +1,7 @@
 package main
 
 import (
+	"canvas/catalogue"
 	"canvas/connections"
 	"canvas/functions"
 	"canvas/models"
@@ -60,7 +61,7 @@ func main() {
 		//#region User Auth
 		userId := r.URL.Query().Get("userId")
 		canvasIdentifier := r.URL.Query().Get("canvasIdentifier")
-		validCanvas := functions.CanvasExists(models.CANVAS_LIST, canvasIdentifier)
+		validCanvas := functions.CanvasExists(catalogue.CANVAS_LIST, canvasIdentifier)
 		if !validCanvas {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Invalid Canvas Identifier"))
