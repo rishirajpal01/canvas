@@ -47,7 +47,7 @@ func main() {
 	// Subscribe to the pixelUpdates channel
 	pubsub := connections.RedisClient.Subscribe(context.TODO(), "pixelUpdates")
 	defer pubsub.Close()
-	redisSubChan := pubsub.Channel()
+	redisSubChan := pubsub.Channel(redis.WithChannelSize(5000))
 
 	err = functions.MakeDefaultCanvas(connections.RedisClient)
 	if err != nil {
