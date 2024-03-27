@@ -10,8 +10,7 @@ const (
 )
 
 type UserMessage struct {
-	MessageType      int32  `json:"messageType"`
-	CanvasIdentifier string `json:"canvasIdentifier"`
-	PixelId          int32  `json:"pixelId"`
-	Color            int32  `json:"color"`
+	MessageType int32 `json:"messageType"`
+	PixelId     int32 `json:"pixelId"`
+	Color       int32 `json:"color"`
 }

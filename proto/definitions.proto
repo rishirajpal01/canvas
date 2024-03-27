@@ -3,10 +3,9 @@ syntax = "proto3";
 option go_package = "github.com/rishirajpal01/canvas";
 
 message RequestMessage {
-    int32 MessageType   = 1;
-    string CanvasIdentifier = 2;
-    int32 PixelId = 3;
-    int32 Color = 4;
+    int32 MessageType = 1;
+    int32 PixelId = 2;
+    int32 Color = 3;
 }
 
 
