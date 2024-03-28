@@ -8,7 +8,6 @@ message RequestMessage {
     int32 Color = 3;
 }
 
-
 message ResponseMessage {
     int32 MessageType = 1;
     string Message = 2;
@@ -17,4 +16,10 @@ message ResponseMessage {
     int32 PixelId = 5;
     int32 Color = 6;
     int64 TimeStamp = 7;
+    int32 CanvasWidth = 8;
+    int32 CanvasHeight = 9;
+    int32 UserCooldown = 10;
+    int32 PixelCooldown = 11;
+    int32 PingInterval = 12;
+    int32 DisconnectTimeout = 13;
 }

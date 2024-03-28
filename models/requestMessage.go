@@ -2,11 +2,12 @@ package models
 
 // Message Types
 const (
-	GET_CANVAS = 0
-	SET_CANVAS = 1
-	VIEW_PIXEL = 2
-	DISCONNET  = 3
-	TEST       = 4
+	GET_CONFIG = 0
+	GET_CANVAS = 1
+	SET_CANVAS = 2
+	VIEW_PIXEL = 3
+	DISCONNET  = 4
+	TEST       = 5
 )
 
 type UserMessage struct {

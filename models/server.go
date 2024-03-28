@@ -7,13 +7,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// #region Workers
-const (
-	NUM_OF_WORKERS = 150
-)
-
-// #endregion Workers
-
 // #region User
 const (
 	USER_COOLDOWN_PERIOD  = 10

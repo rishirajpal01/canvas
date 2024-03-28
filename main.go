@@ -7,7 +7,6 @@ import (
 	"canvas/models"
 	canvas "canvas/proto"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -159,8 +158,8 @@ func listen(client *models.Client) {
 			return
 		}
 
-		var userMessage models.UserMessage
-		err = json.Unmarshal(messageContent, &userMessage)
+		var userMessage canvas.RequestMessage
+		err = proto.Unmarshal(messageContent, &userMessage)
 		if err != nil {
 			log.Println("ERR4: ", err)
 			response := &canvas.ResponseMessage{
@@ -183,7 +182,7 @@ func listen(client *models.Client) {
 
 		//#region Verify User message
 
-		isValidMessage := functions.VerifyMessage(userMessage.MessageType)
+		isValidMessage := functions.VerifyMessage(userMessage.GetMessageType())
 		if !isValidMessage {
 			response := &canvas.ResponseMessage{
 				MessageType: models.Error,
@@ -201,10 +200,27 @@ func listen(client *models.Client) {
 		}
 		//#endregion Verify User message
 
-		if userMessage.MessageType == models.SET_CANVAS {
+		if userMessage.GetMessageType() == models.GET_CONFIG {
+			response := &canvas.ResponseMessage{
+				MessageType:       models.Success,
+				CanvasWidth:       models.DEFAULT_X_SIZE,
+				CanvasHeight:      models.DEFAULT_Y_SIZE,
+				UserCooldown:      models.USER_COOLDOWN_PERIOD,
+				PixelCooldown:     models.PIXEL_COOLDOWN_PERIOD,
+				PingInterval:      models.PING_INTERVAL,
+				DisconnectTimeout: models.DISCONNECT_AFTER_SECS,
+			}
+
+			protoMessage, err := proto.Marshal(response)
+			if err != nil {
+				log.Println("ERR19: ", err)
+				continue
+			}
+			client.ServerChan <- protoMessage
+		} else if userMessage.GetMessageType() == models.SET_CANVAS {
 
 			//#region verify placeTileMessage
-			isValid := functions.VerifyPlaceTileMessage(userMessage.PixelId, userMessage.Color, client.CanvasIdentifier)
+			isValid := functions.VerifyPlaceTileMessage(userMessage.GetMessageType(), userMessage.GetColor(), client.CanvasIdentifier)
 			if !isValid {
 				response := &canvas.ResponseMessage{
 					MessageType: models.Error,
@@ -235,7 +251,7 @@ func listen(client *models.Client) {
 				client.ServerChan <- protoMessage
 				continue
 			}
-			pixelCoolDown, message := functions.CheckPixelCooldown(userMessage.PixelId, connections.RedisClient)
+			pixelCoolDown, message := functions.CheckPixelCooldown(userMessage.GetPixelId(), connections.RedisClient)
 			if pixelCoolDown {
 				response := &canvas.ResponseMessage{
 					MessageType: models.PixelCooldown,
@@ -252,7 +268,7 @@ func listen(client *models.Client) {
 			//#endregion canSet pixel
 
 			//#region Set pixel
-			success, err := functions.SetPixelAndPublish(userMessage.PixelId, userMessage.Color, client.UserId, client.CanvasIdentifier, connections.RedisClient, connections.MongoClient)
+			success, err := functions.SetPixelAndPublish(userMessage.GetPixelId(), userMessage.GetColor(), client.UserId, client.CanvasIdentifier, connections.RedisClient, connections.MongoClient)
 			if !success {
 				log.Println("ERR10: ", err)
 				response := &canvas.ResponseMessage{
@@ -282,7 +298,7 @@ func listen(client *models.Client) {
 			client.ServerChan <- protoMessage
 			//#endregion Send Response
 
-		} else if userMessage.MessageType == models.GET_CANVAS {
+		} else if userMessage.GetMessageType() == models.GET_CANVAS {
 
 			//#region Get Canvas
 			val, err := functions.GetCanvas(client.CanvasIdentifier, connections.RedisClient)
@@ -315,10 +331,10 @@ func listen(client *models.Client) {
 			client.ServerChan <- protoMessage
 			//#endregion Send Canvas
 
-		} else if userMessage.MessageType == models.VIEW_PIXEL {
+		} else if userMessage.GetMessageType() == models.VIEW_PIXEL {
 
 			//#region Get Pixel
-			pixelValue := functions.GetPixel(userMessage.PixelId, client.CanvasIdentifier, connections.MongoClient)
+			pixelValue := functions.GetPixel(userMessage.GetPixelId(), client.CanvasIdentifier, connections.MongoClient)
 			//#endregion Get Pixel
 
 			//#region Send Pixel
