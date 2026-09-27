@@ -15,7 +15,15 @@ export async function buildPages(source, output) {
     await writeFile(join(output, file), contents);
     if (file === 'map.html') await writeFile(join(output, 'index.html'), contents);
   }
-  await writeFile(join(output, '_routes.json'), JSON.stringify({ version: 1, include: ['/', '/map', '/board/*', '/api/*'], exclude: [] }));
+  await writeFile(join(output, '_routes.json'), JSON.stringify({ version: 1, include: ['/', '/map', '/arch', '/board/*', '/api/*'], exclude: [] }));
+  try {
+    const assetsDir = resolve('assets/diagrams');
+    const assetFiles = await readdir(assetsDir);
+    await mkdir(join(output, 'assets/diagrams'), { recursive: true });
+    for (const f of assetFiles) {
+      await writeFile(join(output, 'assets/diagrams', f), await readFile(join(assetsDir, f)));
+    }
+  } catch {}
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

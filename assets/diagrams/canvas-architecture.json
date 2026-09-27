@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Canvas System Architecture",
+    "output": "assets/diagrams/canvas-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "production-edge",
+        "label": "Production Cloudflare Edge",
+        "focus": ["browser", "pages_cdn", "functions", "worker_api", "catalogue_do", "board_do"],
+        "note": "Follow client requests through Pages CDN, Functions edge router, and Durable Objects."
+      },
+      {
+        "id": "realtime-sync",
+        "label": "Real-time Collaboration",
+        "focus": ["browser", "worker_api", "board_do"],
+        "note": "Direct live WebSocket broadcast loop between Board DO and connected browsers."
+      },
+      {
+        "id": "local-development",
+        "label": "Local Development",
+        "focus": ["local_browser", "go_server", "data_files"],
+        "note": "Zero-dependency local Go daemon persisting state to local disk and streaming SSE."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "Web Browser",
+      "sublabel": "HTML5 Canvas UI",
+      "tag": "Live Client",
+      "pos": [40, 190],
+      "size": [130, 60]
+    },
+    {
+      "id": "pages_cdn",
+      "type": "cloud",
+      "label": "Cloudflare Pages",
+      "sublabel": "Static Assets CDN",
+      "brand": "cloudflare",
+      "pos": [260, 90],
+      "size": [140, 60]
+    },
+    {
+      "id": "functions",
+      "type": "backend",
+      "label": "Pages Functions",
+      "sublabel": "functions/[[path]].js",
+      "brand": "cloudflare",
+      "pos": [260, 270],
+      "size": [140, 60]
+    },
+    {
+      "id": "worker_api",
+      "type": "backend",
+      "label": "Worker API",
+      "sublabel": "canvas-rishirajpal-api",
+      "brand": "cloudflare",
+      "pos": [480, 270],
+      "size": [150, 60]
+    },
+    {
+      "id": "catalogue_do",
+      "type": "database",
+      "label": "Catalogue DO",
+      "sublabel": "Registry & TTL Alarms",
+      "brand": "sqlite",
+      "pos": [720, 150],
+      "size": [150, 60]
+    },
+    {
+      "id": "board_do",
+      "type": "database",
+      "label": "Board DO",
+      "sublabel": "SQLite Grid & WS Hub",
+      "brand": "sqlite",
+      "pos": [720, 310],
+      "size": [150, 60]
+    },
+    {
+      "id": "local_browser",
+      "type": "frontend",
+      "label": "Local Browser",
+      "sublabel": "localhost:8080",
+      "tag": "Dev Client",
+      "pos": [40, 480],
+      "size": [130, 60]
+    },
+    {
+      "id": "go_server",
+      "type": "backend",
+      "label": "Go Local Server",
+      "sublabel": "cmd/canvas (SSE)",
+      "brand": "go",
+      "pos": [260, 480],
+      "size": [140, 60]
+    },
+    {
+      "id": "data_files",
+      "type": "database",
+      "label": "Disk Storage",
+      "sublabel": "data/*.json files",
+      "pos": [480, 480],
+      "size": [140, 60]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Cloudflare Global Edge Platform",
+      "wraps": ["pages_cdn", "functions", "worker_api", "catalogue_do", "board_do"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Local Development Sandbox",
+      "wraps": ["local_browser", "go_server", "data_files"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-static",
+      "from": "browser",
+      "to": "pages_cdn",
+      "label": "static assets"
+    },
+    {
+      "id": "browser-functions",
+      "from": "browser",
+      "to": "functions",
+      "label": "HTTP & WS",
+      "labelDy": 20
+    },
+    {
+      "id": "functions-worker",
+      "from": "functions",
+      "to": "worker_api",
+      "label": "CANVAS_API"
+    },
+    {
+      "id": "worker-catalogue",
+      "from": "worker_api",
+      "to": "catalogue_do",
+      "label": "lookup",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "worker-board",
+      "from": "worker_api",
+      "to": "board_do",
+      "label": "dispatch & WS",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "local-http",
+      "from": "local_browser",
+      "to": "go_server",
+      "label": "HTTP & SSE"
+    },
+    {
+      "id": "go-disk",
+      "from": "go_server",
+      "to": "data_files",
+      "label": "JSON state"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Cloudflare Edge",
+      "items": [
+        "Static HTML5, CSS, and JS served by global Cloudflare Pages CDN",
+        "Pages Functions reverse-proxy API calls and upgrade WebSocket connections"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Durable Objects & SQLite",
+      "items": [
+        "Catalogue DO handles board discovery, 168-hour expiration, and midnight IST rotation",
+        "Board DO coordinates 200x200 pixel state, atomic generations, and real-time WebSocket sync"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Local Server Mode",
+      "items": [
+        "Standard Go binary (cmd/canvas) reproduces full API and static UI offline",
+        "Stores board state in data/ directory and streams changes via Server-Sent Events"
+      ]
+    }
+  ]
+}

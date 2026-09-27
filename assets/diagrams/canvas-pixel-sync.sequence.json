@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Canvas Pixel Draw and Live Sync Sequence",
+    "output": "assets/diagrams/canvas-pixel-sync.html",
+    "viewBox": [1080, 560],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "paint-ingest",
+        "label": "Paint request ingestion",
+        "focus": ["painter", "functions", "worker", "board_do"],
+        "note": "Client sends pixel coordinates and palette color through edge router to Board DO."
+      },
+      {
+        "id": "persistence-check",
+        "label": "Validation & SQLite write",
+        "focus": ["board_do", "sqlite"],
+        "note": "Board DO verifies generation counter and atomically updates SQLite state table."
+      },
+      {
+        "id": "realtime-broadcast",
+        "label": "Live WebSocket distribution",
+        "focus": ["board_do", "peers"],
+        "note": "Board DO fans out new cell data to all active WebSocket visitor sessions."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "painter",
+      "type": "external",
+      "label": "Painter",
+      "sublabel": "active browser"
+    },
+    {
+      "id": "functions",
+      "type": "backend",
+      "label": "Pages Functions",
+      "sublabel": "[[path]].js edge",
+      "brand": "cloudflare"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker API",
+      "sublabel": "API coordinator",
+      "brand": "cloudflare"
+    },
+    {
+      "id": "board_do",
+      "type": "database",
+      "label": "Board DO",
+      "sublabel": "Durable Object",
+      "brand": "cloudflare"
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "DO SQLite",
+      "sublabel": "persisted state",
+      "brand": "sqlite"
+    },
+    {
+      "id": "peers",
+      "type": "external",
+      "label": "Other Visitors",
+      "sublabel": "live WebSocket peers"
+    }
+  ],
+  "segments": [
+    { "from": 150, "to": 250, "label": "Paint Request" },
+    { "from": 260, "to": 360, "label": "State Mutation & SQLite" },
+    { "from": 370, "to": 480, "label": "HTTP Return & WebSocket Fan-out" }
+  ],
+  "messages": [
+    {
+      "id": "click-paint",
+      "from": "painter",
+      "to": "functions",
+      "y": 165,
+      "label": "POST /api/events (x, y, color)",
+      "variant": "default"
+    },
+    {
+      "id": "route-worker",
+      "from": "functions",
+      "to": "worker",
+      "y": 195,
+      "label": "CANVAS_API.fetch(request)",
+      "variant": "default"
+    },
+    {
+      "id": "dispatch-do",
+      "from": "worker",
+      "to": "board_do",
+      "y": 225,
+      "label": "BOARD.getByName(id).fetch()",
+      "variant": "emphasis"
+    },
+    {
+      "id": "write-sqlite",
+      "from": "board_do",
+      "to": "sqlite",
+      "y": 270,
+      "label": "UPDATE state SET json",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sqlite-ok",
+      "from": "sqlite",
+      "to": "board_do",
+      "y": 300,
+      "label": "committed",
+      "variant": "return"
+    },
+    {
+      "id": "ack-worker",
+      "from": "board_do",
+      "to": "worker",
+      "y": 330,
+      "label": "200 { generation }",
+      "variant": "return"
+    },
+    {
+      "id": "ack-functions",
+      "from": "worker",
+      "to": "functions",
+      "y": 375,
+      "label": "Response.json()",
+      "variant": "return"
+    },
+    {
+      "id": "ack-painter",
+      "from": "functions",
+      "to": "painter",
+      "y": 405,
+      "label": "200 OK",
+      "variant": "return"
+    },
+    {
+      "id": "ws-fanout",
+      "from": "board_do",
+      "to": "peers",
+      "y": 440,
+      "label": "WebSocket broadcast (cells, gen)",
+      "variant": "emphasis"
+    }
+  ],
+  "activations": [
+    { "participant": "painter", "from": 165, "to": 415, "type": "external" },
+    { "participant": "functions", "from": 165, "to": 410, "type": "backend" },
+    { "participant": "worker", "from": 195, "to": 380, "type": "backend" },
+    { "participant": "board_do", "from": 225, "to": 450, "type": "database" },
+    { "participant": "sqlite", "from": 270, "to": 305, "type": "database" },
+    { "participant": "peers", "from": 440, "to": 475, "type": "external" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Atomic Generation Guard",
+      "items": [
+        "Board Durable Object increments generation counter per mutation",
+        "Mismatched generations return HTTP 409 conflict to prevent race overwrites"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Edge Persistence",
+      "items": [
+        "State persists inside SQLite embedded in each Durable Object",
+        "Zero external database hops required for live read/write operations"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Instant WebSocket Fan-Out",
+      "items": [
+        "Board DO loops through connected WebSockets to broadcast new grid state",
+        "Collaborators receive real-time updates with sub-100ms latency"
+      ]
+    }
+  ]
+}

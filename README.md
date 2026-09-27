@@ -54,6 +54,8 @@ Browser → Cloudflare Pages → Pages Functions → private Worker → Durable 
 Local development: Browser → Go server → data/ files
 ```
 
+Explore the full interactive system design flows at **[/arch](https://canvas.rishirajpal.com/arch)**, covering edge topology, live WebSocket sync, board lifecycle, CI/CD pipelines, and pixel dataflows.
+
 Each board has a generation number. Full-board actions advance it, so a delayed paint request from an older version cannot overwrite the new design. **Auto Fill Live** sends small batches while the browser reveals individual pixels. Kaleidoscope generation keeps its pattern symmetric.
 
 Daily Mosaic changes at midnight **Asia/Kolkata**. Its older boards become read only, and boards older than seven India calendar days are deleted. User-created boards expire after exactly 168 hours. Built-in boards stay available. The production Cloudflare data is separate from local `data/` files, and redeploying does not reset it.
@@ -63,6 +65,8 @@ Daily Mosaic changes at midnight **Asia/Kolkata**. Its older boards become read 
 | Path | Purpose |
 | --- | --- |
 | `pages/` | Shared HTML, styles, browser logic, and browser tests. |
+| `pages/arch.html` | Interactive system architecture and design flows viewer (`/arch`). |
+| `assets/diagrams/` | Interactive HTML viewers, SVG diagrams, and JSON specifications. |
 | `functions/` | Cloudflare Pages request routing. |
 | `cloudflare/worker/` | Production API, board state, and Durable Objects. |
 | `cloudflare/pages/` | Pages build and route checks. |

@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Canvas Board and Daily Mosaic Lifecycle",
+    "output": "assets/diagrams/canvas-board-lifecycle.html",
+    "viewBox": [980, 680],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "perpetual-path",
+        "label": "Built-in & perpetual boards",
+        "focus": ["created", "active", "mutating", "evaluating", "perpetual"],
+        "note": "The Commons and themed boards stay live indefinitely across redeployments."
+      },
+      {
+        "id": "daily-archive-path",
+        "label": "Daily mosaic 7-day retention",
+        "focus": ["active", "evaluating", "daily_archive", "mosaic_purged"],
+        "note": "Daily mosaics rotate at midnight IST, remain read-only for 7 days, then get pruned."
+      },
+      {
+        "id": "user-board-ttl",
+        "label": "Custom board 168-hour TTL",
+        "focus": ["created", "active", "evaluating", "ttl_expired", "board_deleted"],
+        "note": "User-created boards expire exactly 168 hours after creation and are deleted by alarms."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "Board progression" },
+    { "id": "waiting", "label": "Retention & archive window" },
+    { "id": "terminal", "label": "Storage cleanup & purge" }
+  ],
+  "states": [
+    {
+      "id": "created",
+      "type": "start",
+      "label": "Created / Seeded",
+      "sublabel": "API creation or daily prompt",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "init"
+    },
+    {
+      "id": "active",
+      "type": "active",
+      "label": "Active Collaboration",
+      "sublabel": "open multiplayer canvas",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "writable"
+    },
+    {
+      "id": "mutating",
+      "type": "active",
+      "label": "State Mutation",
+      "sublabel": "generation guard & DO write",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "atomic"
+    },
+    {
+      "id": "evaluating",
+      "type": "decision",
+      "label": "Lifecycle Check",
+      "sublabel": "midnight IST / 168h alarm",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "alarm"
+    },
+    {
+      "id": "perpetual",
+      "type": "success",
+      "label": "Perpetual Available",
+      "sublabel": "Commons & built-in boards",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "permanent"
+    },
+    {
+      "id": "daily_archive",
+      "type": "waiting",
+      "label": "Daily Archive",
+      "sublabel": "read-only 7-day window",
+      "lane": "waiting",
+      "col": 0,
+      "tag": "read-only"
+    },
+    {
+      "id": "ttl_expired",
+      "type": "waiting",
+      "label": "TTL Expired",
+      "sublabel": "168 hours elapsed",
+      "lane": "waiting",
+      "col": 1,
+      "tag": "expired"
+    },
+    {
+      "id": "mosaic_purged",
+      "type": "failure",
+      "label": "Mosaic Purged",
+      "sublabel": "older than 7 days deleted",
+      "lane": "terminal",
+      "col": 0,
+      "tag": "purged"
+    },
+    {
+      "id": "board_deleted",
+      "type": "failure",
+      "label": "Board Deleted",
+      "sublabel": "SQLite rows pruned",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "deleted"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "mutating",
+      "to": "daily_archive",
+      "variant": "dashed",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "daily_archive",
+      "to": "mosaic_purged",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "evaluating",
+      "to": "ttl_expired",
+      "variant": "dashed",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "ttl_expired",
+      "to": "board_deleted",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Perpetual Boards",
+      "items": [
+        "The Commons, Kaleidoscope, Pixel Garden, Night Sky, and Tiny Town stay active permanently",
+        "Redeploying Cloudflare Workers does not reset board cell data"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Daily Mosaic Rotation",
+      "items": [
+        "New shared mosaic seeds daily at midnight in Asia/Kolkata timezone (UTC+05:30)",
+        "Today plus previous six calendar days remain readable and downloadable",
+        "Boards older than seven calendar days are automatically pruned from SQLite"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Custom Board TTL",
+      "items": [
+        "User-created boards remain editable for exactly 168 hours (7 full days)",
+        "Durable Object alarm fires on expiry to delete the board and release storage"
+      ]
+    }
+  ]
+}

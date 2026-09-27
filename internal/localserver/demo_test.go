@@ -59,6 +59,22 @@ func TestThemedToolPageAssets(t *testing.T) {
 	}
 }
 
+func TestArchPageAndDiagramAssets(t *testing.T) {
+	handler := newDemoHandler()
+	arch := demoRequest(t, handler, http.MethodGet, "/arch", nil)
+	if arch.Code != http.StatusOK || arch.Header().Get("Content-Type") != "text/html; charset=utf-8" {
+		t.Fatalf("arch page = %d %q", arch.Code, arch.Header().Get("Content-Type"))
+	}
+	if !bytes.Contains(arch.Body.Bytes(), []byte("System Architecture")) {
+		t.Fatalf("arch page missing expected heading")
+	}
+
+	diagram := demoRequest(t, handler, http.MethodGet, "/assets/diagrams/canvas-architecture.html", nil)
+	if diagram.Code != http.StatusOK || diagram.Header().Get("Content-Type") != "text/html; charset=utf-8" {
+		t.Fatalf("diagram asset = %d %q", diagram.Code, diagram.Header().Get("Content-Type"))
+	}
+}
+
 func TestLocalLiveConnectionModuleIsServed(t *testing.T) {
 	handler := newDemoHandler()
 	module := demoRequest(t, handler, http.MethodGet, "/live-connection.mjs", nil)

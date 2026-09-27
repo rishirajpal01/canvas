@@ -33,6 +33,12 @@ describe('Pages routes', () => {
     expect(api.calls).toEqual(['/api/boards']);
   });
 
+  it('serves the arch page', async () => {
+    const arch = context('/arch');
+    expect((await route(arch)).status).toBe(200);
+    expect(arch.calls).toEqual(['/arch.html']);
+  });
+
   it('returns 404 for expired board page routes', async () => {
     const board = context('/board/aaaaaaaaaaaaaaaaaaaaaaaa', 404);
     expect((await route(board)).status).toBe(404);

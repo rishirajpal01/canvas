@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canvas — System Architecture & Design Flows</title>
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/app.css">
+  <style>
+    .arch-shell {
+      width: min(100% - 64px, 1440px);
+      margin: auto;
+      padding-bottom: 80px;
+    }
+    .arch-nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background-color .15s, border-color .15s;
+    }
+    .arch-nav-link:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .arch-header {
+      padding: 48px 0 32px;
+      border-bottom: 1px solid var(--line);
+    }
+    .arch-title {
+      margin: 12px 0 10px;
+      font: 400 clamp(30px, 3.5vw, 44px)/1.15 Georgia, "Times New Roman", serif;
+      letter-spacing: -.04em;
+    }
+    .arch-title em {
+      color: var(--accent);
+      font-style: italic;
+    }
+    .arch-subtitle {
+      max-width: 820px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* Flow Selector Tabs */
+    .flow-tabs-wrap {
+      margin: 32px 0 24px;
+    }
+    .flow-tabs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .flow-tab {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .15s, box-shadow .15s, background-color .15s;
+    }
+    .flow-tab:hover {
+      border-color: var(--accent);
+      background: var(--surface-soft);
+    }
+    .flow-tab.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .flow-tab-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .flow-step {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+    .flow-tab.active .flow-step {
+      color: var(--accent);
+    }
+    .flow-tag {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      background: var(--surface-soft);
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .flow-tab.active .flow-tag {
+      background: var(--surface);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .flow-tab-label {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .flow-tab-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Viewer Stage */
+    .viewer-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 36px;
+    }
+    .viewer-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+    }
+    .viewer-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .viewer-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+    .viewer-kind {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .viewer-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .action-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background-color .15s, border-color .15s;
+    }
+    .action-link:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .diagram-frame-wrap {
+      position: relative;
+      width: 100%;
+      height: 720px;
+      background: var(--page);
+    }
+    .diagram-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: transparent;
+    }
+
+    /* Architectural Insights Grid */
+    .insights-section {
+      margin-top: 36px;
+    }
+    .section-eyebrow {
+      margin-bottom: 16px;
+    }
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .insight-card {
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .insight-card-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .insight-card-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .insight-items {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .insight-items li {
+      margin-bottom: 6px;
+    }
+
+    /* Repo Mapping Section */
+    .files-card {
+      margin-top: 24px;
+      padding: 20px 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .files-title {
+      margin: 0 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .files-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .file-chip span {
+      color: var(--muted);
+      font-family: Inter, sans-serif;
+      font-size: 11px;
+    }
+
+    @media (max-width: 860px) {
+      .arch-shell { width: min(100% - 32px, 100%); }
+      .diagram-frame-wrap { height: 560px; }
+      .flow-tabs { grid-template-columns: 1fr; }
+      .viewer-toolbar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="arch-shell">
+    <header class="topbar">
+      <a class="brand" href="/map" aria-label="Canvas home"><span class="brand-mark">◧</span> canvas<span class="brand-period">.</span></a>
+      <div class="header-actions">
+        <a class="arch-nav-link" href="/map">← Back to Canvas</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false"><span data-theme-label>Dark mode</span></button>
+        <a class="github-link" href="https://github.com/rishirajpal01/canvas" target="_blank" rel="noopener noreferrer" aria-label="View Canvas on GitHub" title="View Canvas on GitHub"><svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.23.49-2.69-.95-2.69-.95-.36-.92-.89-1.16-.89-1.16-.73-.5.06-.49.06-.49.81.06 1.24.83 1.24.83.72 1.23 1.88.87 2.34.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 0 1 8 4.75c.68 0 1.36.09 2 .27 1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
+      </div>
+    </header>
+
+    <div class="arch-header">
+      <span class="eyebrow">SYSTEM ARCHITECTURE & DESIGN FLOWS</span>
+      <h1 class="arch-title">How Canvas is <em>Engineered</em></h1>
+      <p class="arch-subtitle">
+        Explore all five system design perspectives: Cloudflare global edge topology, real-time WebSocket synchronization, board lifecycle management, automated CI/CD release pipeline, and client-to-edge dataflows.
+      </p>
+    </div>
+
+    <!-- Flow Tabs -->
+    <nav class="flow-tabs-wrap" aria-label="Select system design flow">
+      <div class="flow-tabs" role="tablist">
+        <button class="flow-tab active" type="button" role="tab" id="tab-architecture" aria-selected="true" aria-controls="flow-panel" data-flow="architecture">
+          <div class="flow-tab-top">
+            <span class="flow-step">01</span>
+            <span class="flow-tag">Architecture</span>
+          </div>
+          <span class="flow-tab-label">System Topology</span>
+          <span class="flow-tab-desc">Edge CDN, Private Worker, SQLite DO & Local Go Server</span>
+        </button>
+
+        <button class="flow-tab" type="button" role="tab" id="tab-sequence" aria-selected="false" aria-controls="flow-panel" data-flow="sequence">
+          <div class="flow-tab-top">
+            <span class="flow-step">02</span>
+            <span class="flow-tag">Sequence</span>
+          </div>
+          <span class="flow-tab-label">Pixel Draw & Live Sync</span>
+          <span class="flow-tab-desc">Atomic mutations, generation checks & WebSocket fan-out</span>
+        </button>
+
+        <button class="flow-tab" type="button" role="tab" id="tab-lifecycle" aria-selected="false" aria-controls="flow-panel" data-flow="lifecycle">
+          <div class="flow-tab-top">
+            <span class="flow-step">03</span>
+            <span class="flow-tag">Lifecycle</span>
+          </div>
+          <span class="flow-tab-label">Board Retention & TTL</span>
+          <span class="flow-tab-desc">Perpetual boards, midnight IST rollover & 168h alarms</span>
+        </button>
+
+        <button class="flow-tab" type="button" role="tab" id="tab-workflow" aria-selected="false" aria-controls="flow-panel" data-flow="workflow">
+          <div class="flow-tab-top">
+            <span class="flow-step">04</span>
+            <span class="flow-tag">Workflow</span>
+          </div>
+          <span class="flow-tab-label">CI/CD Production Deploy</span>
+          <span class="flow-tab-desc">Go vet, Node tests & dual Worker/Pages deployment</span>
+        </button>
+
+        <button class="flow-tab" type="button" role="tab" id="tab-dataflow" aria-selected="false" aria-controls="flow-panel" data-flow="dataflow">
+          <div class="flow-tab-top">
+            <span class="flow-step">05</span>
+            <span class="flow-tag">Dataflow</span>
+          </div>
+          <span class="flow-tab-label">Collaborative Dataflow</span>
+          <span class="flow-tab-desc">Local photo quantization, batch queues & live broadcast</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Viewer Stage Card -->
+    <section class="viewer-card" id="flow-panel" role="tabpanel" aria-labelledby="tab-architecture">
+      <div class="viewer-toolbar">
+        <div class="viewer-heading">
+          <h2 class="viewer-title" id="flow-title">Canvas System Architecture</h2>
+          <span class="viewer-kind" id="flow-kind">Architecture View</span>
+        </div>
+        <div class="viewer-actions">
+          <a class="action-link" id="action-fullscreen" href="/assets/diagrams/canvas-architecture.html" target="_blank" rel="noopener noreferrer">Fullscreen ↗</a>
+          <a class="action-link" id="action-svg" href="/assets/diagrams/canvas-architecture.svg" download="canvas-architecture.svg">Download SVG ↓</a>
+          <a class="action-link" id="action-json" href="/assets/diagrams/canvas-architecture.json" target="_blank" rel="noopener noreferrer">View Spec JSON ↗</a>
+        </div>
+      </div>
+
+      <div class="diagram-frame-wrap">
+        <iframe class="diagram-iframe" id="diagram-frame" src="/assets/diagrams/canvas-architecture.html" title="Interactive System Design Diagram" loading="lazy"></iframe>
+      </div>
+    </section>
+
+    <!-- Detailed Insights -->
+    <section class="insights-section" aria-labelledby="insights-heading">
+      <div class="section-eyebrow"><span class="eyebrow">KEY ARCHITECTURAL DECISIONS</span></div>
+      <div class="insights-grid" id="insights-container">
+        <!-- Rendered dynamically by script based on current flow -->
+      </div>
+
+      <div class="files-card">
+        <div class="files-title">Source Code Implementation References</div>
+        <div class="files-tags" id="files-container">
+          <!-- Rendered dynamically by script -->
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const FLOWS = {
+      architecture: {
+        title: "Canvas System Architecture",
+        kind: "architecture",
+        file: "canvas-architecture",
+        cards: [
+          {
+            title: "Cloudflare Global Edge",
+            items: [
+              "Static HTML5, CSS, and JS served by Cloudflare Pages CDN edge nodes.",
+              "Pages Functions reverse-proxy API requests and upgrade WebSockets to private Worker."
+            ]
+          },
+          {
+            title: "Durable Objects & SQLite",
+            items: [
+              "Catalogue DO manages board metadata, 168-hour expiration, and midnight IST rotation.",
+              "Board DO coordinates 200×200 pixel state, atomic generations, and live WebSocket sync."
+            ]
+          },
+          {
+            title: "Local Development Mode",
+            items: [
+              "Standard Go binary (cmd/canvas) reproduces full API and static UI without external dependencies.",
+              "Stores board state in data/ directory and streams updates via Server-Sent Events."
+            ]
+          }
+        ],
+        files: [
+          { path: "functions/[[path]].js", note: "Pages edge router" },
+          { path: "cloudflare/worker/index.js", note: "Worker API dispatcher" },
+          { path: "cloudflare/worker/catalogue.js", note: "Catalogue Durable Object" },
+          { path: "cloudflare/worker/board.js", note: "Board Durable Object" },
+          { path: "cmd/canvas/main.go", note: "Go local entry point" },
+          { path: "internal/localserver/demo.go", note: "Go SSE & disk handler" }
+        ]
+      },
+      sequence: {
+        title: "Real-Time Pixel Draw & Live Sync",
+        kind: "sequence",
+        file: "canvas-pixel-sync",
+        cards: [
+          {
+            title: "Atomic Generation Guard",
+            items: [
+              "Board Durable Object increments generation counter monotonically on every mutation.",
+              "Mismatched generations return HTTP 409 conflict so clients refresh without race condition overwrites."
+            ]
+          },
+          {
+            title: "Edge Persistence",
+            items: [
+              "State persists inside SQLite embedded in each Durable Object with zero external database round-trips.",
+              "Transactions execute locally on edge SSDs within single-digit milliseconds."
+            ]
+          },
+          {
+            title: "Instant WebSocket Fan-Out",
+            items: [
+              "Board DO loops through connected WebSockets to broadcast new grid state deltas immediately.",
+              "Collaborators on the same board receive real-time updates with sub-100ms latency."
+            ]
+          }
+        ],
+        files: [
+          { path: "pages/live-connection.mjs", note: "WebSocket & SSE client" },
+          { path: "cloudflare/worker/board.js#L57", note: "broadcast() loop" },
+          { path: "cloudflare/worker/board.js#L64", note: "replace() generation guard" },
+          { path: "pages/app.js", note: "Canvas event listener & render" }
+        ]
+      },
+      lifecycle: {
+        title: "Board Retention & Daily Mosaic Lifecycle",
+        kind: "lifecycle",
+        file: "canvas-board-lifecycle",
+        cards: [
+          {
+            title: "Perpetual Built-in Boards",
+            items: [
+              "The Commons, Kaleidoscope, Pixel Garden, Night Sky, and Tiny Town stay active permanently.",
+              "Redeploying Cloudflare Workers does not reset board cell data."
+            ]
+          },
+          {
+            title: "Daily Mosaic Rotation",
+            items: [
+              "New shared mosaic seeds daily at midnight in Asia/Kolkata timezone (UTC+05:30).",
+              "Today plus previous six calendar days remain readable and downloadable.",
+              "Boards older than seven calendar days are automatically pruned from SQLite."
+            ]
+          },
+          {
+            title: "Custom Board TTL",
+            items: [
+              "User-created boards remain editable for exactly 168 hours (7 full days).",
+              "Durable Object alarm fires on expiry to delete the board and release storage."
+            ]
+          }
+        ],
+        files: [
+          { path: "cloudflare/worker/catalogue.js#L17", note: "dailyDate(Asia/Kolkata)" },
+          { path: "cloudflare/worker/catalogue.js#L50", note: "prune() alarm handler" },
+          { path: "cloudflare/worker/board.js#L48", note: "setAlarm(expiresAt)" },
+          { path: "internal/localserver/daily.go", note: "Go local rotation" }
+        ]
+      },
+      workflow: {
+        title: "CI/CD Production Deployment Pipeline",
+        kind: "workflow",
+        file: "canvas-deploy-workflow",
+        cards: [
+          {
+            title: "Continuous Integration",
+            items: [
+              "GitHub Actions workflow runs automatically on push to main branch.",
+              "Concurrently executes Go unit tests, Go vet, and Node.js route and syntax tests."
+            ]
+          },
+          {
+            title: "Dual Cloudflare Rollout",
+            items: [
+              "Private worker deploys first, running SQLite Durable Object migrations tag v1 and v2.",
+              "Pages static dist/ directory deploys second, ensuring backend API readiness."
+            ]
+          },
+          {
+            title: "Fail-Closed Gate",
+            items: [
+              "Any test failure immediately halts execution before production deployment.",
+              "Concurrency group canvas-production prevents conflicting parallel builds."
+            ]
+          }
+        ],
+        files: [
+          { path: ".github/workflows/deploy.yml", note: "GitHub Actions workflow" },
+          { path: "cloudflare/worker/wrangler.jsonc", note: "Worker & DO config" },
+          { path: "cloudflare/pages/build.mjs", note: "Pages static packager" },
+          { path: "pages/*.test.mjs", note: "Client unit tests" }
+        ]
+      },
+      dataflow: {
+        title: "Collaborative Pixel Dataflow Pipeline",
+        kind: "dataflow",
+        file: "canvas-pixel-dataflow",
+        cards: [
+          {
+            title: "Local Client Processing",
+            items: [
+              "Photo conversion and camera capture run locally in the browser via HTML5 Canvas.",
+              "Original image files are never uploaded; only 16-color palette indices are transmitted."
+            ]
+          },
+          {
+            title: "Batching & Atomic Protection",
+            items: [
+              "Live fill queues pixels and dispatches batches of 1 to 64 to minimize HTTP overhead.",
+              "Full artwork uploads and pixel batches verify generation tokens against race conditions."
+            ]
+          },
+          {
+            title: "Real-time Fan-out",
+            items: [
+              "Board DO pushes updated pixel arrays directly across active WebSocket connections.",
+              "All connected visitors see live artwork develop in real time."
+            ]
+          }
+        ],
+        files: [
+          { path: "pages/pixel-reveal.mjs", note: "Chunk reveal queue" },
+          { path: "pages/auto-fill.mjs", note: "Procedural pattern generator" },
+          { path: "pages/live-fill.mjs", note: "Auto-fill batch worker" },
+          { path: "cloudflare/worker/board.js#L130", note: "Batch event handler" }
+        ]
+      }
+    };
+
+    function selectFlow(key) {
+      const data = FLOWS[key];
+      if (!data) return;
+
+      // Update tabs
+      document.querySelectorAll(".flow-tab").forEach(tab => {
+        const isMatch = tab.dataset.flow === key;
+        tab.classList.toggle("active", isMatch);
+        tab.setAttribute("aria-selected", isMatch ? "true" : "false");
+      });
+
+      // Update Header
+      document.getElementById("flow-title").textContent = data.title;
+      document.getElementById("flow-kind").textContent = data.kind + " flow";
+
+      // Update Action Links
+      document.getElementById("action-fullscreen").href = `/assets/diagrams/${data.file}.html`;
+      document.getElementById("action-svg").href = `/assets/diagrams/${data.file}.svg`;
+      document.getElementById("action-svg").setAttribute("download", `${data.file}.svg`);
+      document.getElementById("action-json").href = `/assets/diagrams/${data.file}.json`;
+
+      // Update Diagram iframe
+      document.getElementById("diagram-frame").src = `/assets/diagrams/${data.file}.html`;
+
+      // Update Insight Cards
+      const container = document.getElementById("insights-container");
+      container.innerHTML = data.cards.map(c => `
+        <div class="insight-card">
+          <div class="insight-card-top">
+            <h3 class="insight-card-title">${c.title}</h3>
+          </div>
+          <ul class="insight-items">
+            ${c.items.map(item => `<li>${item}</li>`).join("")}
+          </ul>
+        </div>
+      `).join("");
+
+      // Update File Chips
+      const filesContainer = document.getElementById("files-container");
+      filesContainer.innerHTML = data.files.map(f => `
+        <div class="file-chip">
+          <code>${f.path}</code>
+          <span>· ${f.note}</span>
+        </div>
+      `).join("");
+
+      // Update URL hash
+      if (window.location.hash !== `#${key}`) {
+        history.replaceState(null, "", `#${key}`);
+      }
+    }
+
+    // Attach click listeners to tabs
+    document.querySelectorAll(".flow-tab").forEach(tab => {
+      tab.addEventListener("click", () => selectFlow(tab.dataset.flow));
+    });
+
+    // Check URL hash on initial load
+    window.addEventListener("DOMContentLoaded", () => {
+      const hash = window.location.hash.replace("#", "").toLowerCase();
+      if (FLOWS[hash]) {
+        selectFlow(hash);
+      } else {
+        selectFlow("architecture");
+      }
+    });
+
+    // React to browser back/forward navigation
+    window.addEventListener("hashchange", () => {
+      const hash = window.location.hash.replace("#", "").toLowerCase();
+      if (FLOWS[hash]) selectFlow(hash);
+    });
+  </script>
+</body>
+</html>

@@ -11,6 +11,9 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -72,6 +75,37 @@ func newDemoHandlerWithHub(hub *demoHub) http.Handler {
 	})
 	mux.HandleFunc("GET /map", func(w http.ResponseWriter, r *http.Request) {
 		serveDemoPage(w, "map.html")
+	})
+	mux.HandleFunc("GET /arch", func(w http.ResponseWriter, r *http.Request) {
+		serveDemoPage(w, "arch.html")
+	})
+	mux.HandleFunc("GET /assets/diagrams/{file}", func(w http.ResponseWriter, r *http.Request) {
+		file := r.PathValue("file")
+		if file == "" || strings.Contains(file, "..") || strings.Contains(file, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		path := filepath.Join("assets", "diagrams", file)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			path = filepath.Join("..", "..", "assets", "diagrams", file)
+			data, err = os.ReadFile(path)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+		}
+		switch {
+		case strings.HasSuffix(file, ".html"):
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		case strings.HasSuffix(file, ".svg"):
+			w.Header().Set("Content-Type", "image/svg+xml")
+		case strings.HasSuffix(file, ".json"):
+			w.Header().Set("Content-Type", "application/json")
+		default:
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		}
+		w.Write(data)
 	})
 	mux.HandleFunc("GET /board/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if hub.lookup(r.PathValue("id")) == nil {

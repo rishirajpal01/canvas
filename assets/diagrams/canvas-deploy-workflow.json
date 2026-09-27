@@ -1,0 +1,192 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Canvas CI/CD Production Deployment Workflow",
+    "output": "assets/diagrams/canvas-deploy-workflow.html",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "full-pipeline",
+        "label": "Full deployment pipeline",
+        "focus": ["push_main", "go_checks", "node_checks", "build_pages", "wrangler_worker", "wrangler_pages"],
+        "note": "Follow code from commit push through test gates and dual Cloudflare edge deployments."
+      },
+      {
+        "id": "quality-gates",
+        "label": "Automated quality gates",
+        "focus": ["go_checks", "node_checks", "ci_failed"],
+        "note": "Isolate Go test/vet and Node unit tests that guard production promotion."
+      },
+      {
+        "id": "edge-deploy",
+        "label": "Cloudflare edge rollouts",
+        "focus": ["build_pages", "wrangler_worker", "wrangler_pages"],
+        "note": "Worker and DO SQLite migrations followed by Pages static asset distribution."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "developer", "label": "Source Control" },
+    { "id": "ci", "label": "Automated Quality Gates" },
+    { "id": "build", "label": "Artifact Compilation" },
+    { "id": "cloudflare", "label": "Cloudflare Edge Deployment" },
+    { "id": "exceptions", "label": "Pipeline Failure", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "trigger", "label": "Trigger", "fromCol": 0, "toCol": 0 },
+    { "id": "verification", "label": "Test & verify", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "promotion", "label": "Build & deploy", "fromCol": 3, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "test_suite", "label": "Quality gates", "lane": "ci", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "cf_deploy", "label": "Production release", "lane": "cloudflare", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["push_main", "go_checks", "node_checks", "build_pages", "wrangler_worker", "wrangler_pages"],
+  "nodes": [
+    {
+      "id": "push_main",
+      "lane": "developer",
+      "col": 0,
+      "type": "frontend",
+      "label": "Git Push",
+      "sublabel": "branch: main",
+      "brand": "github",
+      "width": 132
+    },
+    {
+      "id": "go_checks",
+      "lane": "ci",
+      "col": 1,
+      "type": "backend",
+      "label": "Go Test & Vet",
+      "sublabel": "go test ./... & vet",
+      "tag": "Go 1.22+",
+      "brand": "go",
+      "width": 132
+    },
+    {
+      "id": "node_checks",
+      "lane": "ci",
+      "col": 2,
+      "type": "security",
+      "label": "Node Tests",
+      "sublabel": "node --test & --check",
+      "tag": "blocking",
+      "brand": "github-actions",
+      "width": 132
+    },
+    {
+      "id": "build_pages",
+      "lane": "build",
+      "col": 3,
+      "type": "backend",
+      "label": "Build Pages",
+      "sublabel": "npm run build:pages",
+      "tag": "dist/ bundle",
+      "width": 132
+    },
+    {
+      "id": "wrangler_worker",
+      "lane": "cloudflare",
+      "col": 4,
+      "type": "cloud",
+      "label": "Deploy Worker",
+      "sublabel": "wrangler deploy",
+      "tag": "DO SQLite",
+      "brand": "cloudflare",
+      "width": 132
+    },
+    {
+      "id": "wrangler_pages",
+      "lane": "cloudflare",
+      "col": 5,
+      "type": "cloud",
+      "label": "Deploy Pages",
+      "sublabel": "wrangler pages deploy",
+      "tag": "canvas-rishirajpal",
+      "brand": "cloudflare",
+      "width": 132
+    },
+    {
+      "id": "ci_failed",
+      "lane": "exceptions",
+      "col": 2,
+      "type": "security",
+      "label": "Stop Pipeline",
+      "sublabel": "tests or checks failed",
+      "tag": "fail-closed",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "push-to-go",
+      "from": "push_main",
+      "to": "go_checks",
+      "label": "webhook",
+      "variant": "emphasis"
+    },
+    {
+      "id": "go-to-node",
+      "from": "go_checks",
+      "to": "node_checks",
+      "variant": "default"
+    },
+    {
+      "id": "node-to-build",
+      "from": "node_checks",
+      "to": "build_pages",
+      "label": "passed",
+      "variant": "emphasis"
+    },
+    {
+      "id": "build-to-worker",
+      "from": "build_pages",
+      "to": "wrangler_worker",
+      "variant": "default"
+    },
+    {
+      "id": "worker-to-pages",
+      "from": "wrangler_worker",
+      "to": "wrangler_pages",
+      "variant": "emphasis"
+    },
+    {
+      "id": "checks-fail",
+      "from": "node_checks",
+      "to": "ci_failed",
+      "label": "failed",
+      "variant": "security",
+      "role": "error"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Continuous Integration",
+      "items": [
+        "GitHub Actions workflow runs automatically on push to main branch",
+        "Concurrently executes Go unit tests, Go vet, and Node.js route and syntax tests"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Dual Cloudflare Rollout",
+      "items": [
+        "Private worker deploys first, running SQLite Durable Object migrations tag v1 and v2",
+        "Pages static dist/ directory deploys second, ensuring backend API readiness"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Fail-Closed Gate",
+      "items": [
+        "Any test failure immediately halts execution before production deployment",
+        "Concurrency group canvas-production prevents conflicting parallel builds"
+      ]
+    }
+  ]
+}
