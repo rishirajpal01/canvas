@@ -1,0 +1,40 @@
+name: Deploy Canvas
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canvas-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: npm ci
+      - run: go test ./...
+      - run: go vet ./...
+      - run: npm test
+      - run: node --test pages/*.test.mjs cloudflare/pages/build.test.mjs
+      - run: node --check pages/app.js
+      - run: npm run build:pages
+      - run: npx wrangler deploy -c cloudflare/worker/wrangler.jsonc
+      - run: npx wrangler pages deploy dist --project-name canvas-rishirajpal --branch main

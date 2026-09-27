@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "canvas-rishirajpal",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-09-25",
+  "services": [
+    { "binding": "CANVAS_API", "service": "canvas-rishirajpal-api" }
+  ]
+}

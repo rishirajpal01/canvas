@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "build:pages": "node cloudflare/pages/build.mjs",
+    "deploy:worker": "wrangler deploy -c cloudflare/worker/wrangler.jsonc",
+    "deploy:pages": "npm run build:pages && wrangler pages deploy dist --project-name canvas-rishirajpal"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.2.8",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.141.0"
+  }
+}

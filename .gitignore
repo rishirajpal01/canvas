@@ -1,0 +1,7 @@
+data/
+.DS_Store
+node_modules/
+dist/
+.wrangler/
+.superpowers/
+docs/
