@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export async function buildPages(source, output) {
   await mkdir(output, { recursive: true });
   for (const file of await readdir(source)) {
-    if (!/\.(html|css|js|mjs)$/.test(file) || /\.test\./.test(file)) continue;
+    if (!/\.(html|css|js|mjs|svg)$/.test(file) || /\.test\./.test(file)) continue;
     let contents = await readFile(join(source, file));
     if (file === 'map.html') {
       const html = contents.toString();

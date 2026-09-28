@@ -39,11 +39,14 @@ describe('catalogue storage', () => {
 
   it('keeps six archived India days and rejects the seventh', async () => {
     const catalogue = env.CATALOGUE.getByName(crypto.randomUUID());
-    const base = Date.parse('2026-09-20T18:30:00Z');
+    // Keep the simulated dates ahead of real time so Durable Object alarms
+    // cannot prune test rows using the current clock while the test runs.
+    const futureDate = dailyDate(new Date(Date.now() + 30 * 86_400_000));
+    const base = Date.parse(`${futureDate}T18:30:00Z`);
     for (let i = 0; i < 8; i++) await catalogue.today(base + i * 86_400_000);
     const archive = await catalogue.archive(base + 7 * 86_400_000);
     expect(archive.boards).toHaveLength(6);
-    expect(archive.boards.map(board => board.date)).toContain('2026-09-22');
-    expect(archive.boards.map(board => board.date)).not.toContain('2026-09-21');
+    expect(archive.boards.map(board => board.date)).toContain(dailyDate(new Date(base + 86_400_000)));
+    expect(archive.boards.map(board => board.date)).not.toContain(dailyDate(new Date(base)));
   });
 });

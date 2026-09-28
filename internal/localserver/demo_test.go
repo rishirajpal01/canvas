@@ -75,6 +75,20 @@ func TestArchPageAndDiagramAssets(t *testing.T) {
 	}
 }
 
+func TestFaviconIsServedAndLinkedFromPages(t *testing.T) {
+	handler := newDemoHandler()
+	icon := demoRequest(t, handler, http.MethodGet, "/favicon.svg", nil)
+	if icon.Code != http.StatusOK || icon.Header().Get("Content-Type") != "image/svg+xml" || !bytes.Contains(icon.Body.Bytes(), []byte("<svg")) {
+		t.Fatalf("favicon response = %d %q", icon.Code, icon.Header().Get("Content-Type"))
+	}
+	for _, path := range []string{"/map", "/arch"} {
+		page := demoRequest(t, handler, http.MethodGet, path, nil)
+		if !bytes.Contains(page.Body.Bytes(), []byte(`rel="icon" type="image/svg+xml" href="/favicon.svg"`)) {
+			t.Errorf("%s is missing favicon link", path)
+		}
+	}
+}
+
 func TestLocalLiveConnectionModuleIsServed(t *testing.T) {
 	handler := newDemoHandler()
 	module := demoRequest(t, handler, http.MethodGet, "/live-connection.mjs", nil)

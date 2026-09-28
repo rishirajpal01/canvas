@@ -79,6 +79,15 @@ func newDemoHandlerWithHub(hub *demoHub) http.Handler {
 	mux.HandleFunc("GET /arch", func(w http.ResponseWriter, r *http.Request) {
 		serveDemoPage(w, "arch.html")
 	})
+	mux.HandleFunc("GET /favicon.svg", func(w http.ResponseWriter, r *http.Request) {
+		icon, err := pages.Files.ReadFile("favicon.svg")
+		if err != nil {
+			http.Error(w, "Favicon unavailable", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "image/svg+xml")
+		w.Write(icon)
+	})
 	mux.HandleFunc("GET /assets/diagrams/{file}", func(w http.ResponseWriter, r *http.Request) {
 		file := r.PathValue("file")
 		if file == "" || strings.Contains(file, "..") || strings.Contains(file, "/") {

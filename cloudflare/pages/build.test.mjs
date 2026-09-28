@@ -12,10 +12,12 @@ test('Pages build marks its page for WebSocket and excludes test files', async (
   await mkdir(source);
   await writeFile(join(source, 'map.html'), '<html data-live-transport="sse">Canvas</html>');
   await writeFile(join(source, 'app.js'), 'app');
+  await writeFile(join(source, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   await writeFile(join(source, 'app.test.mjs'), 'test');
   await buildPages(source, output);
   assert.match(await readFile(join(output, 'map.html'), 'utf8'), /data-live-transport="websocket"/);
   assert.equal(await readFile(join(output, 'index.html'), 'utf8'), await readFile(join(output, 'map.html'), 'utf8'));
   assert.equal(await readFile(join(output, 'app.js'), 'utf8'), 'app');
+  assert.equal(await readFile(join(output, 'favicon.svg'), 'utf8'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   assert.rejects(readFile(join(output, 'app.test.mjs')));
 });
