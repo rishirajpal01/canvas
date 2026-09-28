@@ -1,0 +1,2 @@
+# Archify exports remain tracked and visible, but do not count as app code.
+assets/diagrams/** linguist-documentation
